@@ -71,6 +71,40 @@ Yours faithfully,
 
 {{senderName}}` 
       },
+      {
+        value: 'address_change',
+        label: 'Change Registered Address',
+        template: `From:
+{{senderName}}
+{{senderAddress}}
+{{city}}
+
+Date: {{date}}
+
+To,
+{{recipientTitle}}
+{{recipientAddress}}
+
+Subject: Application for Change of Residential Address in Bank Records
+
+Dear Sir/Madam,
+
+I am holding a savings account in your branch with Account Number {{accountNumber}}.
+
+I would like to inform you that my residential address has changed. I request you to kindly update my new address in your records for all future correspondence.
+
+New Address:
+{{senderAddress}}
+{{city}}
+
+I have attached the necessary proof of address documents (Aadhar Card/Rent Agreement) with this application.
+
+Thank you.
+
+Yours faithfully,
+
+{{senderName}}`
+      },
       { 
         value: 'cheque_book', 
         label: 'Request Cheque Book', 
@@ -217,11 +251,183 @@ Thank you.
 Yours faithfully,
 
 {{senderName}}`
+      },
+      {
+        value: 'high_bill',
+        label: 'Complaint: High Electricity Bill',
+        template: `From:
+{{senderName}}
+{{senderAddress}}
+{{city}}
+
+Date: {{date}}
+
+To,
+{{recipientTitle}}
+{{recipientAddress}}
+
+Subject: Complaint regarding Inflated Electricity Bill (Consumer No: {{consumerNumber}})
+
+Dear Sir,
+
+I am writing to register a complaint regarding the electricity bill received for the last billing cycle for my connection (K.No: {{consumerNumber}}).
+
+I have received a bill which is significantly higher than my average monthly consumption. There has been no change in my usage pattern or connected load. I suspect there might be a reading error or a meter fault.
+
+I request you to kindly verify the meter reading and rectify the bill amount.
+
+Thank you.
+
+Yours faithfully,
+
+{{senderName}}`
       }
     ],
-    // Default / Generic fallback for other types
-    [ApplicationType.POLICE_COMPLAINT]: [],
-    [ApplicationType.SCHOOL_LEAVE]: [],
+    [ApplicationType.POLICE_COMPLAINT]: [
+      {
+        value: 'lost_item',
+        label: 'Report Lost Item (Mobile/Wallet)',
+        template: `From:
+{{senderName}}
+{{senderAddress}}
+{{city}}
+
+Date: {{date}}
+
+To,
+{{recipientTitle}}
+{{recipientAddress}}
+
+Subject: Report regarding loss of Mobile/Wallet/Documents
+
+Respected Sir/Madam,
+
+I am writing to report the loss of my personal belongings.
+Incident Details: {{customBody}}
+
+I have searched everywhere but could not find them. I request you to kindly register a complaint (NCR) regarding this loss, as it is required for applying for duplicate documents/SIM card.
+
+I shall be grateful for your assistance.
+
+Yours faithfully,
+
+{{senderName}}`
+      },
+      {
+        value: 'noise_complaint',
+        label: 'Complaint: Noise Nuisance',
+        template: `From:
+{{senderName}}
+{{senderAddress}}
+{{city}}
+
+Date: {{date}}
+
+To,
+{{recipientTitle}}
+{{recipientAddress}}
+
+Subject: Complaint regarding Loud Speaker/Noise Nuisance in Locality
+
+Respected Sir,
+
+I would like to bring to your attention the nuisance caused by the indiscriminate use of loud speakers / loud music in our locality ({{city}}).
+
+This is causing great disturbance to the residents, especially students preparing for exams and elderly people. Despite repeated requests, the noise levels remain high late into the night.
+
+I request you to take necessary action to stop this public nuisance and ensure peace in the area.
+
+Yours faithfully,
+
+{{senderName}}`
+      }
+    ],
+    [ApplicationType.SCHOOL_LEAVE]: [
+      {
+        value: 'sick_leave',
+        label: 'Sick Leave Application',
+        template: `From:
+{{senderName}}
+{{senderAddress}}
+{{city}}
+
+Date: {{date}}
+
+To,
+{{recipientTitle}}
+{{recipientAddress}}
+
+Subject: Application for Sick Leave
+
+Respected Sir/Madam,
+
+Most respectfully, I beg to state that I am suffering from high fever since last night. My doctor has advised me complete rest for a few days.
+
+Therefore, I am unable to attend school/office today. I kindly request you to grant me leave for 2 days. I will submit the medical certificate upon joining.
+
+Thank you.
+
+Yours obediently,
+
+{{senderName}}`
+      },
+      {
+        value: 'urgent_work',
+        label: 'Urgent Piece of Work',
+        template: `From:
+{{senderName}}
+{{senderAddress}}
+{{city}}
+
+Date: {{date}}
+
+To,
+{{recipientTitle}}
+{{recipientAddress}}
+
+Subject: Application for Leave due to Urgent Work
+
+Respected Sir/Madam,
+
+I wish to inform you that I have an urgent piece of work at home today which requires my personal attention. Hence, I will not be able to attend school/office.
+
+I request you to kindly grant me leave for one day ({{date}}). I shall be obliged.
+
+Thank you.
+
+Yours obediently,
+
+{{senderName}}`
+      },
+      {
+        value: 'family_function',
+        label: 'Leave for Family Function',
+        template: `From:
+{{senderName}}
+{{senderAddress}}
+{{city}}
+
+Date: {{date}}
+
+To,
+{{recipientTitle}}
+{{recipientAddress}}
+
+Subject: Leave Application for attending Family Function
+
+Respected Sir/Madam,
+
+I am writing to request leave from attending school/work as I have to attend a family marriage ceremony/function in my hometown.
+
+Kindly grant me leave for 3 days starting from {{date}}. I will ensure that my pending work is completed upon my return.
+
+Thank you.
+
+Yours obediently,
+
+{{senderName}}`
+      }
+    ],
     [ApplicationType.OTHER]: []
   },
   'Hindi (Formal)': {
@@ -397,9 +603,9 @@ const App: React.FC = () => {
 
   // Validation Logic
   // If custom or police, check body/incident text. If template, check basic fields.
-  const isReasonProvided = (templateKey === 'custom' || appType === ApplicationType.POLICE_COMPLAINT)
+  const isReasonProvided = (templateKey === 'custom' || appType === ApplicationType.POLICE_COMPLAINT || templateKey === 'lost_item' || templateKey === 'atm_lost')
     ? (formData.incidentDetails.trim().length > 0 || formData.customBody.trim().length > 0)
-    : true; // Templates don't require custom body
+    : true; // Templates don't require custom body unless specified
   
   const isBankApp = appType === ApplicationType.BANK_TRANSFER || appType === ApplicationType.ATM_ISSUE;
   const accNumInput = formData.accountNumber.trim();
@@ -442,23 +648,49 @@ const App: React.FC = () => {
       `}</style>
 
       {/* Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-50 no-print">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="bg-blue-700 p-2 rounded-lg">
-                <PenTool className="w-6 h-6 text-white" />
+      <header className="bg-white/95 backdrop-blur-sm border-b border-slate-200 sticky top-0 z-50 no-print">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+          
+          {/* Brand Logo & Title */}
+          <div className="flex items-center gap-4 group cursor-default">
+            <div className="bg-blue-600 p-3 rounded-xl shadow-lg shadow-blue-100 group-hover:shadow-blue-200 group-hover:-translate-y-0.5 transition-all duration-300">
+                <PenTool className="w-6 h-6 text-white" strokeWidth={2.5} />
             </div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight text-slate-900">ArziWala</h1>
-              <p className="text-[10px] uppercase font-bold text-blue-700 tracking-wider">Formal Application Generator</p>
+            <div className="flex flex-col justify-center">
+              <h1 className="text-2xl font-black tracking-tight text-slate-900 leading-none mb-1.5 group-hover:text-blue-900 transition-colors">
+                ArziWala
+              </h1>
+              <p className="text-[10px] sm:text-xs font-bold text-blue-600 uppercase tracking-[0.15em] leading-none">
+                Formal Application Generator
+              </p>
             </div>
           </div>
-          <div className="flex items-center space-x-3">
-            <div className="flex items-center space-x-1.5 bg-green-50 px-3 py-1.5 rounded-full border border-green-200 text-green-800">
+          
+          {/* Privacy Shield with Tooltip */}
+          <div className="relative group cursor-help">
+            <div className="flex items-center space-x-1.5 bg-green-50 px-3 py-1.5 rounded-full border border-green-200 text-green-800 hover:bg-green-100 transition-colors">
               <ShieldCheck className="w-4 h-4" />
               <span className="text-xs font-semibold hidden sm:inline">Privacy Shield Active</span>
             </div>
+            
+            {/* The Explanation Tooltip */}
+            <div className="absolute top-full right-0 mt-3 w-72 p-4 bg-white rounded-xl shadow-xl border border-slate-100 text-xs text-slate-600 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 transform origin-top-right">
+                <div className="absolute -top-2 right-6 w-4 h-4 bg-white border-t border-l border-slate-100 transform rotate-45"></div>
+                <div className="relative z-10">
+                    <div className="flex items-center space-x-2 mb-2 text-green-700 font-bold">
+                        <ShieldCheck className="w-4 h-4" />
+                        <span>How we protect your data</span>
+                    </div>
+                    <p className="leading-relaxed mb-2">
+                        Your sensitive information (like Account Numbers & IDs) is <strong>never sent to the AI</strong>.
+                    </p>
+                    <p className="leading-relaxed bg-slate-50 p-2 rounded border border-slate-100">
+                        We use generic placeholders during generation and restore your private details locally on your device.
+                    </p>
+                </div>
+            </div>
           </div>
+
         </div>
       </header>
 
@@ -641,7 +873,7 @@ const App: React.FC = () => {
                     )}
 
                     {/* Incident / Reason / Custom Body */}
-                    {appType === ApplicationType.POLICE_COMPLAINT && (
+                    {appType === ApplicationType.POLICE_COMPLAINT && templateKey !== 'lost_item' && (
                          <div className="bg-red-50/50 rounded-lg border border-red-100 p-4">
                             <TextArea 
                                 label="Incident Details / घटना का विवरण *" 
@@ -656,10 +888,10 @@ const App: React.FC = () => {
                     )}
 
                     {/* CUSTOM REASON: Only show if template is 'custom' OR if specific template requires it (like ATM Lost with details) */}
-                    {(templateKey === 'custom' || templateKey === 'atm_lost') && appType !== ApplicationType.POLICE_COMPLAINT && (
+                    {(templateKey === 'custom' || templateKey === 'atm_lost' || templateKey === 'lost_item') && (
                         <div className="animate-in fade-in slide-in-from-top-2 duration-300">
                              <TextArea 
-                                label={templateKey === 'atm_lost' ? "Loss Details (Where/When)" : "Reason / Custom Request *"}
+                                label={templateKey === 'atm_lost' || templateKey === 'lost_item' ? "Item/Loss Details (What/Where/When)" : "Reason / Custom Request *"}
                                 name="customBody" 
                                 value={formData.customBody} 
                                 onChange={handleInputChange} 
