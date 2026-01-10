@@ -623,8 +623,8 @@ const App: React.FC = () => {
       {/* PRINT STYLES */}
       <style>{`
         @media print {
-          @page { margin: 2cm; size: auto; }
-          body { background: white; }
+          @page { margin: 0 !important; size: auto; }
+          body { background: white; margin: 0; }
           .no-print { display: none !important; }
           #printable-letter {
             display: block !important;
@@ -634,7 +634,7 @@ const App: React.FC = () => {
             width: 100%;
             height: 100%;
             margin: 0;
-            padding: 0;
+            padding: 2.54cm; /* Standard A4 Margin (1 inch) */
             font-family: 'Times New Roman', serif;
             font-size: 12pt;
             line-height: 1.5;
@@ -643,6 +643,7 @@ const App: React.FC = () => {
             white-space: pre-wrap;
             border: none;
             box-shadow: none;
+            z-index: 9999;
           }
         }
       `}</style>
