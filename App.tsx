@@ -27,7 +27,6 @@ import {
 import { ApplicationType, FormData, INITIAL_FORM_DATA, Language } from './types';
 import { generateLetterText } from './services/pollinations';
 import { Input, TextArea } from './components/Input';
-import { Accordion } from './components/Accordion';
 
 // --- HYBRID TEMPLATE SYSTEM ---
 
@@ -237,6 +236,21 @@ Yours faithfully,
   }
 };
 
+// Simple Section Component (Replaces Accordion)
+const FormSection: React.FC<{ title: string; icon: React.ReactNode; children: React.ReactNode }> = ({ title, icon, children }) => (
+  <div className="border border-slate-200 rounded-xl bg-white overflow-hidden shadow-sm">
+    <div className="flex items-center space-x-3 p-4 bg-slate-50 border-b border-slate-100">
+      <div className="text-blue-700">{icon}</div>
+      <span className="font-bold text-sm uppercase tracking-wide text-slate-800">
+        {title}
+      </span>
+    </div>
+    <div className="p-5">
+      {children}
+    </div>
+  </div>
+);
+
 
 const App: React.FC = () => {
   const [appType, setAppType] = useState<ApplicationType>(ApplicationType.BANK_TRANSFER);
@@ -252,18 +266,6 @@ const App: React.FC = () => {
   // Template State
   // Default to first template if available, else 'custom'
   const [templateKey, setTemplateKey] = useState<string>('custom');
-
-  // Accordion State
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    type: true,
-    sender: true,
-    recipient: false,
-    details: true
-  });
-
-  const toggleSection = (section: string) => {
-    setOpenSections(prev => ({ ...prev, [section]: !prev[section] }));
-  };
 
   // Helper to get available templates
   const getAvailableTemplates = () => {
@@ -464,14 +466,12 @@ const App: React.FC = () => {
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 relative">
           
           {/* LEFT: FORM SECTION */}
-          <div className="space-y-6 no-print">
+          <div className="space-y-6 no-print pb-20 lg:pb-0">
             
             {/* 1. Application Type & Language */}
-            <Accordion 
+            <FormSection 
                 title="Application Type" 
                 icon={<Settings className="w-5 h-5" />}
-                isOpen={openSections.type}
-                onToggle={() => toggleSection('type')}
             >
                 <div className="space-y-4">
                     <div className="flex justify-end mb-2">
@@ -508,14 +508,12 @@ const App: React.FC = () => {
                         </div>
                     </div>
                 </div>
-            </Accordion>
+            </FormSection>
 
             {/* 2. Sender Details */}
-            <Accordion 
+            <FormSection 
                 title="Your Details (Sender)" 
                 icon={<User className="w-5 h-5" />}
-                isOpen={openSections.sender}
-                onToggle={() => toggleSection('sender')}
             >
                 <div className="space-y-4">
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -542,14 +540,12 @@ const App: React.FC = () => {
                         placeholder="House No, Street, Locality"
                     />
                 </div>
-            </Accordion>
+            </FormSection>
 
             {/* 3. Recipient Details */}
-            <Accordion 
+            <FormSection 
                 title="Recipient Details" 
                 icon={<Building2 className="w-5 h-5" />}
-                isOpen={openSections.recipient}
-                onToggle={() => toggleSection('recipient')}
             >
                  <div className="grid grid-cols-1 gap-4">
                     <Input 
@@ -566,14 +562,12 @@ const App: React.FC = () => {
                     onChange={handleInputChange} 
                     />
                 </div>
-            </Accordion>
+            </FormSection>
 
             {/* 4. Application Specifics */}
-            <Accordion 
+            <FormSection 
                 title="Application Details" 
                 icon={<FileText className="w-5 h-5" />}
-                isOpen={openSections.details}
-                onToggle={() => toggleSection('details')}
             >
                 <div className="space-y-5">
                     
@@ -677,7 +671,7 @@ const App: React.FC = () => {
                     )}
 
                 </div>
-            </Accordion>
+            </FormSection>
 
             {/* Validation Errors & Submit */}
             <div className="space-y-4 pt-2">
