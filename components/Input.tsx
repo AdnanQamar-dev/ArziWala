@@ -6,12 +6,12 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
 
 export const Input: React.FC<InputProps> = ({ label, className = '', ...props }) => {
   return (
-    <div className="flex flex-col space-y-1">
-      <label className="text-sm font-semibold text-slate-700 uppercase tracking-wide">
+    <div className="flex flex-col space-y-2 group">
+      <label className="text-xs font-medium text-zinc-500 uppercase tracking-widest transition-colors group-focus-within:text-zinc-900">
         {label}
       </label>
       <input
-        className={`border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-700 bg-white shadow-sm transition-all ${className}`}
+        className={`w-full bg-white border border-zinc-200 rounded-lg px-4 py-3 text-sm text-zinc-900 placeholder-zinc-300 transition-all duration-300 ease-out focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 hover:border-zinc-300 shadow-[0_2px_8px_rgba(0,0,0,0.02)] ${className}`}
         {...props}
       />
     </div>
@@ -24,12 +24,12 @@ interface TextAreaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement
 
 export const TextArea: React.FC<TextAreaProps> = ({ label, className = '', ...props }) => {
   return (
-    <div className="flex flex-col space-y-1">
-      <label className="text-sm font-semibold text-slate-700 uppercase tracking-wide">
+    <div className="flex flex-col space-y-2 group">
+      <label className="text-xs font-medium text-zinc-500 uppercase tracking-widest transition-colors group-focus-within:text-zinc-900">
         {label}
       </label>
       <textarea
-        className={`border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-700 bg-white shadow-sm min-h-[100px] ${className}`}
+        className={`w-full bg-white border border-zinc-200 rounded-lg px-4 py-3 text-sm text-zinc-900 placeholder-zinc-300 transition-all duration-300 ease-out focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 hover:border-zinc-300 shadow-[0_2px_8px_rgba(0,0,0,0.02)] min-h-[120px] ${className}`}
         {...props}
       />
     </div>
