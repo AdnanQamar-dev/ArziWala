@@ -1,136 +1,66 @@
-export type ApplicationType = 
-  | 'banking' 
-  | 'police' 
-  | 'government' 
-  | 'education' 
-  | 'employment' 
-  | 'other';
+export enum ApplicationType {
+  BANK_TRANSFER = 'Bank Transfer / Account Services',
+  ATM_ISSUE = 'ATM / Debit Card Issues',
+  POLICE_COMPLAINT = 'Police Complaint (FIR/NCR)',
+  ELECTRICITY_METER = 'Electricity / Water Department',
+  SCHOOL_LEAVE = 'School / College Applications',
+  OTHER = 'Other / General Application'
+}
 
 export type LanguageMode = 'en' | 'hi' | 'both';
 
 export interface FormData {
   // --- Personal Details ---
   senderName: string;
-  fatherName: string;
-  
-  // Sender Address Breakdown
-  senderStreet: string;
-  senderCity: string;
-  senderState: string;
-  senderPincode: string;
-
+  fatherName: string; // Often required in Indian formal letters
+  senderAddress: string;
+  city: string;
   phone: string;
   email: string;
   date: string;
   
   // --- Recipient Details ---
-  recipientTitle: string;
-  
-  // Recipient Address Breakdown
-  recipientStreet: string;
-  recipientCity: string;
-  recipientState: string;
-  recipientPincode: string;
+  recipientTitle: string; // e.g., The Branch Manager
+  recipientAddress: string; // e.g., SBI, Main Branch, Delhi
   
   // --- Common ---
   subject: string;
   
-  // --- Banking ---
+  // --- Banking Specifics ---
   accountNumber: string;
   cifNumber: string;
   bankName: string;
   branchName: string;
   ifscCode: string;
   atmCardLastDigits: string;
-  chequeLeaves?: string; // 25, 50, 100
   
-  // --- Police/Incident ---
+  // --- Police/Incident Specifics ---
   policeStation: string;
   incidentDate: string;
   incidentTime: string;
   incidentLocation: string;
-  incidentDetails: string;
+  vehicleDetails: string; // For vehicle theft
+  mobileDetails: string; // For mobile theft (IMEI/Model)
+  incidentDetails: string; // General description
   
-  // Vehicle Theft
-  vehicleDetails?: string;
-  vehicleType?: string;
-  vehicleBrand?: string;
-  vehicleModel?: string;
-  vehicleColor?: string;
-  registrationNumber?: string;
-  chassisNumber?: string;
-  engineNumber?: string;
-  vehicleValue?: string;
-  
-  // Mobile Theft
-  mobileDetails: string; // Used as generic or specific
-  imeiNumber?: string;
-  mobileModel?: string;
-  mobileColor?: string;
-  simProvider?: string;
-  simNumber?: string;
-  mobileValue?: string;
-  
-  // --- Utility ---
-  consumerNumber: string;
-  
-  // --- Education ---
-  rollNumber?: string;
-  className?: string;
-  section?: string;
-  schoolName?: string;
-  principalName?: string;
-  admissionNumber?: string;
-  leaveReason?: string;
-  leaveFromDate?: string;
-  leaveToDate?: string;
-
-  // --- Employment ---
-  department?: string;
-  designation?: string;
-  employeeId?: string;
-  joiningDate?: string;
-  lastWorkingDate?: string;
-  noticePeriod?: string;
-  managerName?: string;
-  managerDesignation?: string;
-  companyName?: string;
-  resignationReason?: string;
-  
-  // --- Government/Certificate ---
-  tehsil?: string;
-  district?: string;
-  state?: string;
-  caste?: string;
-  category?: string; // SC/ST/OBC
-  occupation?: string;
-  annualIncome?: string;
-  purpose?: string;
+  // --- Utility Specifics ---
+  consumerNumber: string; // K Number / Meter Number
   
   // --- Custom/AI ---
-  customBody: string;
+  customBody: string; // Extra details / Reason
 }
 
 export const INITIAL_FORM_DATA: FormData = {
   senderName: '',
   fatherName: '',
-  
-  senderStreet: '',
-  senderCity: '',
-  senderState: '',
-  senderPincode: '',
-
+  senderAddress: '',
+  city: '',
   phone: '',
   email: '',
   date: new Date().toISOString().split('T')[0],
   
   recipientTitle: '',
-  
-  recipientStreet: '',
-  recipientCity: '',
-  recipientState: '',
-  recipientPincode: '',
-  
+  recipientAddress: '',
   subject: '',
   
   accountNumber: '',

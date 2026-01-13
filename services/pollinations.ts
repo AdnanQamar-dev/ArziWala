@@ -52,16 +52,6 @@ export const generateLetterText = async (type: ApplicationType, data: FormData, 
   const reasonContent = (data.customBody || data.incidentDetails || "As per subject.") + extraDetails;
   const subjectLine = data.subject || `Application for ${type}`;
 
-  // Address Construction
-  const senderFullAddress = `${data.senderStreet}, ${data.senderCity}, ${data.senderState} - ${data.senderPincode}`;
-  let recipientFullAddress = `${data.recipientTitle}, `;
-  
-  if (type === 'banking') {
-      recipientFullAddress += `${data.bankName}, ${data.branchName}`;
-  } else {
-      recipientFullAddress += `${data.recipientStreet}, ${data.recipientCity}, ${data.recipientState} - ${data.recipientPincode}`;
-  }
-
   // 2. CONSTRUCT THE STRONG, DETAILED PROMPT
   const langInstruction = language === 'hi' 
     ? "Write the letter entirely in formal HINDI (Devanagari script). Use standard formal Hindi vocabulary (e.g., 'Savinay Nivedan', 'Prarthi')." 
@@ -73,10 +63,10 @@ Subject: ${subjectLine}
 Target Language: ${langInstruction}
 
 Data Points:
-- Sender: ${data.senderName} (S/o ${data.fatherName || '__________'}), ${senderFullAddress}
+- Sender: ${data.senderName} (S/o ${data.fatherName || '__________'}), ${data.senderAddress}, ${data.city}
 - Contact: ${SAFE_PLACEHOLDERS.PHONE}
 - Date: ${data.date}
-- Recipient: ${recipientFullAddress}
+- Recipient: ${data.recipientTitle}, ${data.recipientAddress}
 - Reference: ${specificRefNumber}
 
 MANDATORY STRUCTURE:

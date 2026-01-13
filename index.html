@@ -6,32 +6,15 @@
     <meta name="google-site-verification" content="rwdqJYcn4YIX0ZHeAt5hfxTM-PZgdPR68qbXI9_T0mI" />
     <title>ArziWala - Application Maker</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Merriweather:wght@300;400;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Merriweather:wght@300;400;700&display=swap" rel="stylesheet">
     <!-- PDF Generation Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" defer></script>
     <style>
       body {
         font-family: 'Inter', sans-serif;
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
       }
       .font-serif {
         font-family: 'Merriweather', serif;
-      }
-      /* Minimalist scrollbar */
-      ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
-      }
-      ::-webkit-scrollbar-track {
-        background: transparent;
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #e4e4e7;
-        border-radius: 4px;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #d4d4d8;
       }
     </style>
   <script type="importmap">
@@ -46,14 +29,18 @@
 }
 </script>
 </head>
-  <body class="bg-zinc-50 text-zinc-900 selection:bg-zinc-900 selection:text-white">
+  <body class="bg-slate-50 text-slate-900 antialiased">
     <div id="root">
       <!-- Fallback loading state -->
-      <div class="flex flex-col items-center justify-center min-h-screen text-zinc-400 space-y-4">
-        <div class="w-12 h-12 border-2 border-zinc-200 border-t-zinc-800 rounded-full animate-spin"></div>
-        <span class="font-serif text-zinc-800 tracking-widest text-sm uppercase">ArziWala</span>
+      <div class="flex items-center justify-center min-h-screen text-slate-400">
+        <svg class="animate-spin h-8 w-8 mr-3 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <span class="font-medium">Loading ArziWala...</span>
       </div>
     </div>
+    <!-- THIS SCRIPT TAG WAS MISSING: -->
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>
