@@ -1,626 +1,431 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
-  FileText, 
-  Printer, 
-  Loader2, 
-  PenTool, 
-  RefreshCcw, 
-  ShieldCheck, 
-  Lock, 
-  Languages, 
-  AlertCircle, 
-  Coffee,
-  Landmark,
-  ShieldAlert, 
-  Zap,
-  GraduationCap,
-  Files,
-  User,
-  Building2,
-  Settings,
-  Minimize,
-  Maximize,
-  ChevronDown
+  FileText, Printer, Loader2, PenTool, RefreshCcw, ShieldCheck, Lock, 
+  Languages, AlertCircle, Coffee, Landmark, ShieldAlert, Zap, GraduationCap, 
+  Files, User, Building2, Settings, Minimize, Maximize, ChevronDown, CheckCircle2,
+  ArrowRight, Heart, QrCode, Feather, Eye, Save, Eraser, Edit3
 } from 'lucide-react';
-import { ApplicationType, FormData, INITIAL_FORM_DATA, Language } from './types';
+import { ApplicationType, FormData, INITIAL_FORM_DATA, LanguageMode } from './types';
 import { generateLetterText } from './services/pollinations';
 import { Input, TextArea } from './components/Input';
+import { PreviewModal } from './components/PreviewModal';
+import { PlatformDetect } from './utils/platform';
 
-// --- HYBRID TEMPLATE SYSTEM ---
+// --- DATA: BILINGUAL LABELS ---
+const LABELS: Record<string, { en: string; hi: string }> = {
+  // Sections
+  yourDetails: { en: "Your Details", hi: "आपकी जानकारी" },
+  recipientDetails: { en: "Recipient Details", hi: "जिसे पत्र भेजना है" },
+  appDetails: { en: "Application Details", hi: "आवेदन का विवरण" },
+  
+  // Fields
+  name: { en: "Name", hi: "नाम" },
+  fatherName: { en: "Father's Name", hi: "पिता का नाम" },
+  address: { en: "Address", hi: "पता" },
+  city: { en: "City/District", hi: "शहर/जिला" },
+  phone: { en: "Mobile Number", hi: "मोबाइल नंबर" },
+  email: { en: "Email (Optional)", hi: "ईमेल (वैकल्पिक)" },
+  
+  recipientTitle: { en: "Recipient Title", hi: "पद (जैसे: शाखा प्रबंधक)" },
+  recipientAddress: { en: "Recipient Address", hi: "कार्यालय का पता" },
+  
+  bankName: { en: "Bank Name", hi: "बैंक का नाम" },
+  branchName: { en: "Branch Name", hi: "शाखा का नाम" },
+  accountNumber: { en: "Account Number", hi: "खाता संख्या" },
+  cifNumber: { en: "CIF / IFSC Code", hi: "CIF / IFSC कोड" },
+  cardLastDigits: { en: "Card Last 4 Digits", hi: "कार्ड के अंतिम 4 अंक" },
+  
+  policeStation: { en: "Police Station Name", hi: "थाना का नाम" },
+  incidentDate: { en: "Incident Date", hi: "घटना की तारीख" },
+  incidentTime: { en: "Incident Time", hi: "घटना का समय" },
+  mobileDetails: { en: "Mobile Model & IMEI", hi: "मोबाइल मॉडल और IMEI" },
+  vehicleDetails: { en: "Vehicle Model & Reg No", hi: "गाड़ी का मॉडल और नंबर" },
+  
+  consumerNumber: { en: "Consumer / K Number", hi: "उपभोक्ता संख्या (K No)" },
+  
+  reason: { en: "Reason / Details", hi: "कारण / विवरण" },
+  generate: { en: "Generate Letter", hi: "पत्र बनाएं" },
+  download: { en: "Download PDF", hi: "PDF डाउनलोड करें" },
+  print: { en: "Print Letter", hi: "पत्र प्रिंट करें" },
+  copy: { en: "Copy Text", hi: "टेक्स्ट कॉपी करें" },
+  preview: { en: "Preview Letter", hi: "पूर्वावलोकन देखें" },
+  letterLang: { en: "Letter Language", hi: "पत्र की भाषा" },
+  reset: { en: "Reset Form", hi: "फॉर्म रिसेट करें" }
+};
 
-type TemplateKey = string;
+// --- DATA: TEMPLATES SYSTEM ---
+type TemplateType = 'instant' | 'ai';
 
-interface TemplateOption {
-  value: TemplateKey;
-  label: string;
-  template: string; // Contains placeholders like {{senderName}}
+interface TemplateConfig {
+  id: string;
+  labelEn: string;
+  labelHi: string;
+  type: TemplateType;
+  requiredFields: (keyof FormData)[];
+  templateText?: string; // For instant
+  aiPrompt?: string; // For custom
 }
 
-const TEMPLATES: Record<Language, Record<string, TemplateOption[]>> = {
-  'English (Official)': {
-    [ApplicationType.BANK_TRANSFER]: [
-      { 
-        value: 'bank_transfer', 
-        label: 'Transfer Bank Account', 
-        template: `From:
-{{senderName}}
-{{senderAddress}}
-{{city}}
+const TEMPLATE_DB: Record<string, TemplateConfig[]> = {
+  [ApplicationType.BANK_TRANSFER]: [
+    {
+      id: 'atm_lost',
+      labelEn: "⚡ ATM Card Lost (Instant)",
+      labelHi: "⚡ ATM कार्ड खो गया (तुरंत)",
+      type: 'instant',
+      requiredFields: ['senderName', 'accountNumber', 'bankName', 'branchName', 'atmCardLastDigits', 'date'],
+      templateText: `To,
+The Branch Manager,
+{{bankName}},
+{{branchName}}
 
 Date: {{date}}
 
-To,
-{{recipientTitle}}
-{{recipientAddress}}
-
-Subject: Request for Transfer of Savings Account (A/c: {{accountNumber}})
-
-Dear Sir/Madam,
-
-I am maintaining a savings account with your branch (Account Number: {{accountNumber}}). 
-
-I have recently shifted my residence to {{city}} and I find it difficult to operate the account from your branch. Therefore, I kindly request you to transfer my account to the SBI branch located at {{city}}. 
-
-I have cleared all my outstanding dues (if any) with your branch. I request you to kindly process this transfer at the earliest.
-
-Thank you.
-
-Yours faithfully,
-
-{{senderName}}` 
-      },
-      {
-        value: 'address_change',
-        label: 'Change Registered Address',
-        template: `From:
-{{senderName}}
-{{senderAddress}}
-{{city}}
-
-Date: {{date}}
-
-To,
-{{recipientTitle}}
-{{recipientAddress}}
-
-Subject: Application for Change of Residential Address in Bank Records
-
-Dear Sir/Madam,
-
-I am holding a savings account in your branch with Account Number {{accountNumber}}.
-
-I would like to inform you that my residential address has changed. I request you to kindly update my new address in your records for all future correspondence.
-
-New Address:
-{{senderAddress}}
-{{city}}
-
-I have attached the necessary proof of address documents (Aadhar Card/Rent Agreement) with this application.
-
-Thank you.
-
-Yours faithfully,
-
-{{senderName}}`
-      },
-      { 
-        value: 'cheque_book', 
-        label: 'Request Cheque Book', 
-        template: `From:
-{{senderName}}
-{{senderAddress}}
-{{city}}
-
-Date: {{date}}
-
-To,
-{{recipientTitle}}
-{{recipientAddress}}
-
-Subject: Request for Issue of New Cheque Book
-
-Dear Sir/Madam,
-
-I hold a savings account in your branch with Account Number {{accountNumber}}. 
-
-I would like to request a new Cheque Book (25 leaves) for my daily transactions. Please debit the applicable charges from my account.
-
-Kindly send the cheque book to my registered address mentioned above or inform me when I can collect it from the branch.
-
-Thank you.
-
-Yours faithfully,
-
-{{senderName}}`
-      },
-      { 
-        value: 'statement', 
-        label: 'Request Account Statement', 
-        template: `From:
-{{senderName}}
-{{senderAddress}}
-{{city}}
-
-Date: {{date}}
-
-To,
-{{recipientTitle}}
-{{recipientAddress}}
-
-Subject: Request for Account Statement
-
-Dear Sir/Madam,
-
-I request you to kindly issue a detailed statement of my savings account (Number: {{accountNumber}}) for the period of last 6 months.
-
-I require this statement for income tax / personal record purposes. Please deduct any necessary service charges from my account.
-
-Thank you.
-
-Yours faithfully,
-
-{{senderName}}`
-      }
-    ],
-    [ApplicationType.ATM_ISSUE]: [
-      { 
-        value: 'atm_lost', 
-        label: 'Block Lost ATM Card', 
-        template: `From:
-{{senderName}}
-{{senderAddress}}
-{{city}}
-
-Date: {{date}}
-
-To,
-{{recipientTitle}}
-{{recipientAddress}}
-
-Subject: Urgent Application to Block Lost ATM Card
-
-Dear Sir/Madam,
-
-I am writing to inform you that I have lost my ATM Debit Card linked to Account Number {{accountNumber}}.
-
-I request you to immediately BLOCK the card to prevent any misuse. 
-Reason/Details: {{customBody}}
-
-Please confirm once the card is blocked. I also request you to issue a new ATM card at your earliest convenience.
-
-Yours faithfully,
-
-{{senderName}}`
-      },
-      { 
-        value: 'new_atm', 
-        label: 'Issue New ATM Card', 
-        template: `From:
-{{senderName}}
-{{senderAddress}}
-{{city}}
-
-Date: {{date}}
-
-To,
-{{recipientTitle}}
-{{recipientAddress}}
-
-Subject: Application for Issuance of New ATM Card
-
-Dear Sir/Madam,
-
-I hold a savings account in your branch (A/c: {{accountNumber}}).
-
-I would like to apply for a new ATM Debit Card for this account as my previous card is damaged/expired. I authorize the bank to deduct the annual maintenance charges from my account.
-
-Kindly dispatch the card to my registered address.
-
-Yours faithfully,
-
-{{senderName}}`
-      }
-    ],
-    [ApplicationType.ELECTRICITY_METER]: [
-      {
-        value: 'meter_change',
-        label: 'Request Meter Change (Faulty)',
-        template: `From:
-{{senderName}}
-{{senderAddress}}
-{{city}}
-
-Date: {{date}}
-
-To,
-{{recipientTitle}}
-{{recipientAddress}}
-
-Subject: Application for Replacement of Faulty Electricity Meter (K.No: {{consumerNumber}})
-
-Dear Sir,
-
-I wish to bring to your notice that the electricity meter installed at my residence (Consumer No: {{consumerNumber}}) is not working correctly. It seems to be running too fast/stopped, resulting in incorrect billing.
-
-I request you to kindly send a technician to inspect the meter and replace it if found faulty.
-
-Thank you.
-
-Yours faithfully,
-
-{{senderName}}`
-      },
-      {
-        value: 'high_bill',
-        label: 'Complaint: High Electricity Bill',
-        template: `From:
-{{senderName}}
-{{senderAddress}}
-{{city}}
-
-Date: {{date}}
-
-To,
-{{recipientTitle}}
-{{recipientAddress}}
-
-Subject: Complaint regarding Inflated Electricity Bill (Consumer No: {{consumerNumber}})
-
-Dear Sir,
-
-I am writing to register a complaint regarding the electricity bill received for the last billing cycle for my connection (K.No: {{consumerNumber}}).
-
-I have received a bill which is significantly higher than my average monthly consumption. There has been no change in my usage pattern or connected load. I suspect there might be a reading error or a meter fault.
-
-I request you to kindly verify the meter reading and rectify the bill amount.
-
-Thank you.
-
-Yours faithfully,
-
-{{senderName}}`
-      }
-    ],
-    [ApplicationType.POLICE_COMPLAINT]: [
-      {
-        value: 'lost_item',
-        label: 'Report Lost Item (Mobile/Wallet)',
-        template: `From:
-{{senderName}}
-{{senderAddress}}
-{{city}}
-
-Date: {{date}}
-
-To,
-{{recipientTitle}}
-{{recipientAddress}}
-
-Subject: Report regarding loss of Mobile/Wallet/Documents
+Subject: Request to Block Lost ATM Card (A/c: {{accountNumber}})
 
 Respected Sir/Madam,
 
-I am writing to report the loss of my personal belongings.
-Incident Details: {{customBody}}
+I, {{senderName}}, am holding a savings account in your branch with Account Number {{accountNumber}}.
 
-I have searched everywhere but could not find them. I request you to kindly register a complaint (NCR) regarding this loss, as it is required for applying for duplicate documents/SIM card.
+I wish to inform you that my ATM/Debit Card (ending with digits {{atmCardLastDigits}}) has been lost/stolen.
 
-I shall be grateful for your assistance.
+I request you to immediately BLOCK the said card to prevent any misuse. I also request you to issue a new ATM card at your earliest convenience.
+
+Thanking you.
 
 Yours faithfully,
 
-{{senderName}}`
-      },
-      {
-        value: 'noise_complaint',
-        label: 'Complaint: Noise Nuisance',
-        template: `From:
 {{senderName}}
-{{senderAddress}}
-{{city}}
+Mobile: {{phone}}`
+    },
+    {
+      id: 'cheque_book',
+      labelEn: "⚡ Request Cheque Book (Instant)",
+      labelHi: "⚡ चेकबुक अनुरोध (तुरंत)",
+      type: 'instant',
+      requiredFields: ['senderName', 'accountNumber', 'bankName', 'branchName'],
+      templateText: `To,
+The Branch Manager,
+{{bankName}},
+{{branchName}}
 
 Date: {{date}}
 
-To,
-{{recipientTitle}}
-{{recipientAddress}}
+Subject: Request for Issue of New Cheque Book
 
-Subject: Complaint regarding Loud Speaker/Noise Nuisance in Locality
+Respected Sir/Madam,
+
+I hold a savings account in your branch with Account Number {{accountNumber}}.
+
+I request you to kindly issue a new Cheque Book (25 Leaves) for my account. I authorize you to debit the applicable charges from my account.
+
+Kindly dispatch it to my registered address or inform me when I can collect it.
+
+Thank you.
+
+Yours faithfully,
+
+{{senderName}}
+Mobile: {{phone}}`
+    },
+    {
+      id: 'bank_custom',
+      labelEn: "🤖 Other Banking Issue (AI)",
+      labelHi: "🤖 अन्य बैंक समस्या (AI)",
+      type: 'ai',
+      requiredFields: ['senderName', 'accountNumber', 'bankName', 'customBody']
+    }
+  ],
+  [ApplicationType.POLICE_COMPLAINT]: [
+    {
+      id: 'mobile_theft',
+      labelEn: "⚡ Mobile Theft FIR (Instant)",
+      labelHi: "⚡ मोबाइल चोरी FIR (तुरंत)",
+      type: 'instant',
+      requiredFields: ['senderName', 'fatherName', 'senderAddress', 'policeStation', 'mobileDetails', 'incidentDate', 'incidentLocation'],
+      templateText: `To,
+The Station House Officer (SHO),
+{{policeStation}}
+
+Date: {{date}}
+
+Subject: FIR regarding Theft of Mobile Phone
 
 Respected Sir,
 
-I would like to bring to your attention the nuisance caused by the indiscriminate use of loud speakers / loud music in our locality ({{city}}).
+I, {{senderName}} S/o {{fatherName}}, resident of {{senderAddress}}, wish to report the theft of my mobile phone.
 
-This is causing great disturbance to the residents, especially students preparing for exams and elderly people. Despite repeated requests, the noise levels remain high late into the night.
+Incident Details:
+- Date & Time: {{incidentDate}} at {{incidentTime}}
+- Location: {{incidentLocation}}
+- Mobile Model & IMEI: {{mobileDetails}}
 
-I request you to take necessary action to stop this public nuisance and ensure peace in the area.
+The phone was stolen while I was at the above location. I request you to kindly register an FIR and help trace my mobile phone.
+
+Thanking you.
 
 Yours faithfully,
 
-{{senderName}}`
-      }
-    ],
-    [ApplicationType.SCHOOL_LEAVE]: [
-      {
-        value: 'sick_leave',
-        label: 'Sick Leave Application',
-        template: `From:
 {{senderName}}
-{{senderAddress}}
-{{city}}
+Contact: {{phone}}`
+    },
+    {
+      id: 'police_custom',
+      labelEn: "🤖 Other Police Complaint (AI)",
+      labelHi: "🤖 अन्य पुलिस शिकायत (AI)",
+      type: 'ai',
+      requiredFields: ['senderName', 'policeStation', 'incidentDetails']
+    }
+  ],
+  [ApplicationType.SCHOOL_LEAVE]: [
+    {
+      id: 'sick_leave',
+      labelEn: "⚡ Sick Leave (Instant)",
+      labelHi: "⚡ बीमारी की छुट्टी (तुरंत)",
+      type: 'instant',
+      requiredFields: ['senderName', 'recipientTitle'], // Title = Principal
+      templateText: `To,
+The Principal,
+{{recipientAddress}}
 
 Date: {{date}}
-
-To,
-{{recipientTitle}}
-{{recipientAddress}}
 
 Subject: Application for Sick Leave
 
 Respected Sir/Madam,
 
-Most respectfully, I beg to state that I am suffering from high fever since last night. My doctor has advised me complete rest for a few days.
+Most respectfully, I beg to state that I am suffering from high fever since last night. My doctor has advised me complete rest.
 
-Therefore, I am unable to attend school/office today. I kindly request you to grant me leave for 2 days. I will submit the medical certificate upon joining.
+Therefore, I am unable to attend school/class today. I request you to kindly grant me leave for 2 days.
 
-Thank you.
+Thanking you.
 
 Yours obediently,
 
-{{senderName}}`
-      },
-      {
-        value: 'urgent_work',
-        label: 'Urgent Piece of Work',
-        template: `From:
 {{senderName}}
-{{senderAddress}}
+Roll No: {{customBody}}`
+    }
+  ],
+  [ApplicationType.ELECTRICITY_METER]: [
+    {
+      id: 'meter_fault',
+      labelEn: "⚡ Faulty Meter (Instant)",
+      labelHi: "⚡ खराब मीटर (तुरंत)",
+      type: 'instant',
+      requiredFields: ['senderName', 'consumerNumber', 'senderAddress'],
+      templateText: `To,
+The Assistant Engineer,
+Electricity Department,
 {{city}}
 
 Date: {{date}}
 
-To,
-{{recipientTitle}}
-{{recipientAddress}}
+Subject: Complaint regarding Faulty Electricity Meter (K.No: {{consumerNumber}})
 
-Subject: Application for Leave due to Urgent Work
+Dear Sir,
 
-Respected Sir/Madam,
+I reside at {{senderAddress}}. My electricity connection has Consumer Number {{consumerNumber}}.
 
-I wish to inform you that I have an urgent piece of work at home today which requires my personal attention. Hence, I will not be able to attend school/office.
+I wish to report that the meter installed at my premises is not working correctly (running too fast/stopped). This is causing incorrect billing.
 
-I request you to kindly grant me leave for one day ({{date}}). I shall be obliged.
+I request you to kindly send a technician to inspect and replace the meter if found faulty.
 
 Thank you.
 
-Yours obediently,
+Yours faithfully,
 
-{{senderName}}`
-      },
-      {
-        value: 'family_function',
-        label: 'Leave for Family Function',
-        template: `From:
 {{senderName}}
-{{senderAddress}}
-{{city}}
-
-Date: {{date}}
-
-To,
-{{recipientTitle}}
-{{recipientAddress}}
-
-Subject: Leave Application for attending Family Function
-
-Respected Sir/Madam,
-
-I am writing to request leave from attending school/work as I have to attend a family marriage ceremony/function in my hometown.
-
-Kindly grant me leave for 3 days starting from {{date}}. I will ensure that my pending work is completed upon my return.
-
-Thank you.
-
-Yours obediently,
-
-{{senderName}}`
-      }
-    ],
-    [ApplicationType.OTHER]: []
-  },
-  'Hindi (Formal)': {
-     // Hindi templates would follow the same structure. 
-     // Using empty arrays here falls back to "Custom" automatically logic-wise.
-     [ApplicationType.BANK_TRANSFER]: [],
-     [ApplicationType.ATM_ISSUE]: [],
-     [ApplicationType.ELECTRICITY_METER]: [],
-     [ApplicationType.POLICE_COMPLAINT]: [],
-     [ApplicationType.SCHOOL_LEAVE]: [],
-     [ApplicationType.OTHER]: []
-  }
+Mobile: {{phone}}`
+    }
+  ],
+  [ApplicationType.OTHER]: [
+    {
+      id: 'general_custom',
+      labelEn: "🤖 Write Any Letter (AI)",
+      labelHi: "🤖 कोई भी पत्र लिखें (AI)",
+      type: 'ai',
+      requiredFields: ['senderName', 'recipientTitle', 'customBody']
+    }
+  ]
 };
 
-// Simple Section Component (Replaces Accordion)
-const FormSection: React.FC<{ title: string; icon: React.ReactNode; children: React.ReactNode }> = ({ title, icon, children }) => (
-  <div className="border border-slate-200 rounded-xl bg-white overflow-hidden shadow-sm">
-    <div className="flex items-center space-x-3 p-4 bg-slate-50 border-b border-slate-100">
-      <div className="text-blue-700">{icon}</div>
-      <span className="font-bold text-sm uppercase tracking-wide text-slate-800">
-        {title}
-      </span>
-    </div>
-    <div className="p-5">
-      {children}
-    </div>
+// --- COMPONENTS ---
+
+const SectionHeader: React.FC<{ icon: any, title: string }> = ({ icon: Icon, title }) => (
+  <div className="flex items-center space-x-2 text-blue-800 mb-4 border-b border-blue-100 pb-2">
+    <Icon className="w-5 h-5" />
+    <span className="font-bold text-sm uppercase tracking-wider">{title}</span>
   </div>
 );
 
+const TrustBadge: React.FC<{ icon: any, title: string, sub: string }> = ({ icon: Icon, title, sub }) => (
+  <div className="flex flex-col items-center p-4 bg-white rounded-xl shadow-sm border border-slate-100 text-center hover:shadow-md transition-shadow">
+    <div className="bg-blue-50 p-3 rounded-full mb-3 text-blue-600">
+      <Icon className="w-6 h-6" />
+    </div>
+    <div className="font-bold text-slate-800 text-sm">{title}</div>
+    <div className="text-xs text-slate-500">{sub}</div>
+  </div>
+);
+
+// --- MAIN APP ---
 
 const App: React.FC = () => {
+  // Navigation State
+  const [view, setView] = useState<'landing' | 'app'>('landing');
+  
+  // App State
   const [appType, setAppType] = useState<ApplicationType>(ApplicationType.BANK_TRANSFER);
-  const [language, setLanguage] = useState<Language>('English (Official)');
+  const [languageMode, setLanguageMode] = useState<LanguageMode>('both');
+  
+  // New State for Output Language
+  const [outputLang, setOutputLang] = useState<'en' | 'hi'>('en');
+  
+  const [templateId, setTemplateId] = useState<string>('');
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM_DATA);
   const [generatedLetter, setGeneratedLetter] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  
-  // View State
   const [fitToPage, setFitToPage] = useState<boolean>(false);
+  const [showModal, setShowModal] = useState<boolean>(false);
 
-  // Template State
-  // Default to first template if available, else 'custom'
-  const [templateKey, setTemplateKey] = useState<string>('custom');
+  // Derived State
+  const currentTemplates = TEMPLATE_DB[appType] || TEMPLATE_DB[ApplicationType.OTHER];
+  const activeTemplate = currentTemplates.find(t => t.id === templateId) || currentTemplates[0];
 
-  // Helper to get available templates
-  const getAvailableTemplates = () => {
-    const langTemplates = TEMPLATES[language] || TEMPLATES['English (Official)'];
-    const typeTemplates = langTemplates[appType as string] || [];
-    return [
-      ...typeTemplates,
-      { value: 'custom', label: 'Other / Custom Request (AI Generated)', template: '' }
-    ];
+  // --- LOCAL STORAGE PERSISTENCE ---
+  useEffect(() => {
+    // Load from local storage on mount
+    const savedData = localStorage.getItem('arziwala_form_data');
+    if (savedData) {
+      try {
+        setFormData(JSON.parse(savedData));
+      } catch (e) {
+        console.error("Failed to parse saved data");
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    // Save to local storage on change
+    const timeout = setTimeout(() => {
+        localStorage.setItem('arziwala_form_data', JSON.stringify(formData));
+    }, 1000);
+    return () => clearTimeout(timeout);
+  }, [formData]);
+
+  const handleReset = () => {
+    if (confirm('Are you sure you want to clear the form?')) {
+        setFormData(INITIAL_FORM_DATA);
+        setGeneratedLetter('');
+        localStorage.removeItem('arziwala_form_data');
+    }
   };
 
-  // Reset Template Selection when App Type changes
-  useEffect(() => {
-    const available = getAvailableTemplates();
-    // Default to the first defined template if exists, else custom
-    const defaultKey = available.length > 1 ? available[0].value : 'custom';
-    setTemplateKey(defaultKey);
-  }, [appType, language]);
 
-  // Auto-fill recipient title based on selection
   useEffect(() => {
-    let title = '';
-    let address = '';
-    switch (appType) {
-      case ApplicationType.BANK_TRANSFER:
-      case ApplicationType.ATM_ISSUE:
-        title = 'The Branch Manager';
-        address = 'State Bank of India, [Branch Name]';
-        break;
-      case ApplicationType.POLICE_COMPLAINT:
-        title = 'The Station House Officer (SHO)';
-        address = 'Local Police Station, [Area Name]';
-        break;
-      case ApplicationType.ELECTRICITY_METER:
-        title = 'The Assistant Engineer';
-        address = 'Electricity Department, [Division]';
-        break;
-      case ApplicationType.SCHOOL_LEAVE:
-        title = 'The Principal';
-        address = '[School Name], [City]';
-        break;
-      default:
-        title = '';
+    // Set default template when app type changes
+    if (currentTemplates.length > 0) {
+      setTemplateId(currentTemplates[0].id);
     }
-    setFormData(prev => ({ ...prev, recipientTitle: title, recipientAddress: address }));
   }, [appType]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+  // Pre-fill titles based on app type
+  useEffect(() => {
+    let title = '';
+    if (appType === ApplicationType.BANK_TRANSFER || appType === ApplicationType.ATM_ISSUE) title = 'The Branch Manager';
+    else if (appType === ApplicationType.POLICE_COMPLAINT) title = 'The Station House Officer (SHO)';
+    else if (appType === ApplicationType.ELECTRICITY_METER) title = 'The Assistant Engineer';
+    else if (appType === ApplicationType.SCHOOL_LEAVE) title = 'The Principal';
+    
+    // Only set if not already set by user (to allow custom overrides)
+    setFormData(prev => prev.recipientTitle ? prev : ({ ...prev, recipientTitle: title }));
+  }, [appType]);
+
+  const getLabel = (key: string) => {
+    const l = LABELS[key];
+    if (!l) return key;
+    if (languageMode === 'en') return l.en;
+    if (languageMode === 'hi') return l.hi;
+    return `${l.en} / ${l.hi}`;
   };
 
-  const processTemplate = (templateStr: string): string => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const processInstantTemplate = (templateStr: string) => {
     let text = templateStr;
-    const replacements: Record<string, string> = {
+    const map: Record<string, string> = {
       '{{senderName}}': formData.senderName || '__________',
+      '{{fatherName}}': formData.fatherName || '__________',
       '{{senderAddress}}': formData.senderAddress || '__________',
       '{{city}}': formData.city || '__________',
+      '{{phone}}': formData.phone || '__________',
       '{{date}}': formData.date,
       '{{recipientTitle}}': formData.recipientTitle || '__________',
       '{{recipientAddress}}': formData.recipientAddress || '__________',
+      '{{bankName}}': formData.bankName || '__________',
+      '{{branchName}}': formData.branchName || '__________',
       '{{accountNumber}}': formData.accountNumber || '__________',
-      '{{cifNumber}}': formData.cifNumber || '',
+      '{{policeStation}}': formData.policeStation || '__________',
+      '{{incidentDate}}': formData.incidentDate || '__________',
+      '{{incidentTime}}': formData.incidentTime || '__________',
+      '{{incidentLocation}}': formData.incidentLocation || '__________',
+      '{{mobileDetails}}': formData.mobileDetails || '__________',
+      '{{vehicleDetails}}': formData.vehicleDetails || '__________',
+      '{{atmCardLastDigits}}': formData.atmCardLastDigits || '____',
       '{{consumerNumber}}': formData.consumerNumber || '__________',
-      '{{customBody}}': formData.customBody || formData.incidentDetails || '__________',
+      '{{customBody}}': formData.customBody || '__________',
     };
 
-    for (const [key, value] of Object.entries(replacements)) {
-      // replaceAll is ES2021+. Using split/join for better compatibility.
-      text = text.split(key).join(value);
+    for (const [key, val] of Object.entries(map)) {
+      text = text.split(key).join(val);
     }
     return text;
   };
 
   const handleGenerate = async () => {
     setLoading(true);
-    setError(null);
+    let text = '';
     try {
-      if (templateKey !== 'custom') {
-        // --- INSTANT GENERATION (Hybrid) ---
-        // 1. Find the template string
-        const templates = getAvailableTemplates();
-        const selected = templates.find(t => t.value === templateKey);
-        
-        if (selected && selected.template) {
-           // 2. Process replacements locally
-           const processedText = processTemplate(selected.template);
-           setGeneratedLetter(processedText);
-           // Simulate a tiny delay for UX so it feels like "work" is being done
-           await new Promise(r => setTimeout(r, 400));
-        } else {
-           // Fallback to AI if template text missing
-           const text = await generateLetterText(appType, formData, language);
-           setGeneratedLetter(text);
-        }
-
+      if (activeTemplate.type === 'instant' && activeTemplate.templateText) {
+        // Instant Generation
+        // Note: Instant templates are currently English-only logic in this version
+        // We could duplicate templates for Hindi in future
+        text = processInstantTemplate(activeTemplate.templateText);
+        setGeneratedLetter(text);
+        await new Promise(r => setTimeout(r, 500)); 
       } else {
-        // --- SLOW GENERATION (AI) ---
-        const text = await generateLetterText(appType, formData, language);
+        // AI Generation with Language Support
+        text = await generateLetterText(appType, formData, outputLang);
         setGeneratedLetter(text);
       }
-    } catch (err) {
-      setError('Failed to generate letter. Please try again.');
+
+      // Auto-open modal on mobile/tablet or if requested
+      if (PlatformDetect.isMobile()) {
+        setShowModal(true);
+      }
+
+    } catch (e) {
+      alert("Error generating letter. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handlePrint = () => {
-    if (!generatedLetter) return;
-    window.print();
+  const scrollToForm = () => {
+    setView('app');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleCopy = () => {
-    if (!generatedLetter) return;
-    navigator.clipboard.writeText(generatedLetter);
-  };
-
-  const getIcon = () => {
-    switch(appType) {
-        case ApplicationType.BANK_TRANSFER:
-        case ApplicationType.ATM_ISSUE: return <Landmark className="w-6 h-6" />;
-        case ApplicationType.POLICE_COMPLAINT: return <ShieldAlert className="w-6 h-6" />;
-        case ApplicationType.ELECTRICITY_METER: return <Zap className="w-6 h-6" />;
-        case ApplicationType.SCHOOL_LEAVE: return <GraduationCap className="w-6 h-6" />;
-        default: return <FileText className="w-6 h-6" />;
-    }
-  }
-
-  // Validation Logic
-  // If custom or police, check body/incident text. If template, check basic fields.
-  const isReasonProvided = (templateKey === 'custom' || appType === ApplicationType.POLICE_COMPLAINT || templateKey === 'lost_item' || templateKey === 'atm_lost')
-    ? (formData.incidentDetails.trim().length > 0 || formData.customBody.trim().length > 0)
-    : true; // Templates don't require custom body unless specified
+  // --- RENDER HELPERS ---
   
-  const isBankApp = appType === ApplicationType.BANK_TRANSFER || appType === ApplicationType.ATM_ISSUE;
-  const accNumInput = formData.accountNumber.trim();
-  const isAccountNumberValid = !isBankApp || accNumInput.length === 0 || (/^\d+$/.test(accNumInput) && accNumInput.length >= 11 && accNumInput.length <= 16);
-
-  const isFormValid = 
-    formData.senderName.trim().length > 0 &&
-    formData.recipientTitle.trim().length > 0 &&
-    isReasonProvided &&
-    isAccountNumberValid;
+  const isFieldRequired = (field: keyof FormData) => activeTemplate?.requiredFields.includes(field);
 
   return (
-    <div className="min-h-screen flex flex-col font-sans bg-slate-50 text-slate-800">
-      
-      {/* PRINT STYLES */}
+    <div className="min-h-screen font-sans bg-slate-50 text-slate-800">
       <style>{`
         @media print {
           @page { margin: 0 !important; size: auto; }
@@ -628,425 +433,381 @@ const App: React.FC = () => {
           .no-print { display: none !important; }
           #printable-letter {
             display: block !important;
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            margin: 0;
-            padding: 2.54cm; /* Standard A4 Margin (1 inch) */
-            font-family: 'Times New Roman', serif;
-            font-size: 12pt;
-            line-height: 1.5;
-            color: black;
-            background: white;
-            white-space: pre-wrap;
-            border: none;
-            box-shadow: none;
-            z-index: 9999;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            padding: 2.54cm; font-family: 'Times New Roman', serif;
+            font-size: 12pt; line-height: 1.5; color: black; background: white;
+            white-space: pre-wrap; z-index: 9999;
           }
         }
       `}</style>
 
-      {/* Header */}
-      <header className="bg-white/95 backdrop-blur-sm border-b border-slate-200 sticky top-0 z-50 no-print">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-          
-          {/* Brand Logo & Title */}
-          <div className="flex items-center gap-4 group cursor-default">
-            <div className="bg-blue-600 p-3 rounded-xl shadow-lg shadow-blue-100 group-hover:shadow-blue-200 group-hover:-translate-y-0.5 transition-all duration-300">
-                <PenTool className="w-6 h-6 text-white" strokeWidth={2.5} />
+      {/* HEADER */}
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-50 no-print">
+        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setView('landing')}>
+            <div className="bg-blue-600 p-2 rounded-lg text-white">
+              <FileText className="w-5 h-5" />
             </div>
-            <div className="flex flex-col justify-center">
-              <h1 className="text-2xl font-black tracking-tight text-slate-900 leading-none mb-1.5 group-hover:text-blue-900 transition-colors">
-                ArziWala
-              </h1>
-              <p className="text-[10px] sm:text-xs font-bold text-blue-600 uppercase tracking-[0.15em] leading-none">
-                Formal Application Generator
-              </p>
-            </div>
-          </div>
-          
-          {/* Privacy Shield with Tooltip */}
-          <div className="relative group cursor-help">
-            <div className="flex items-center space-x-1.5 bg-green-50 px-3 py-1.5 rounded-full border border-green-200 text-green-800 hover:bg-green-100 transition-colors">
-              <ShieldCheck className="w-4 h-4" />
-              <span className="text-xs font-semibold hidden sm:inline">Privacy Shield Active</span>
-            </div>
-            
-            {/* The Explanation Tooltip */}
-            <div className="absolute top-full right-0 mt-3 w-72 p-4 bg-white rounded-xl shadow-xl border border-slate-100 text-xs text-slate-600 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 transform origin-top-right">
-                <div className="absolute -top-2 right-6 w-4 h-4 bg-white border-t border-l border-slate-100 transform rotate-45"></div>
-                <div className="relative z-10">
-                    <div className="flex items-center space-x-2 mb-2 text-green-700 font-bold">
-                        <ShieldCheck className="w-4 h-4" />
-                        <span>How we protect your data</span>
-                    </div>
-                    <p className="leading-relaxed mb-2">
-                        Your sensitive information (like Account Numbers & IDs) is <strong>never sent to the AI</strong>.
-                    </p>
-                    <p className="leading-relaxed bg-slate-50 p-2 rounded border border-slate-100">
-                        We use generic placeholders during generation and restore your private details locally on your device.
-                    </p>
-                </div>
+            <div>
+              <h1 className="text-xl font-black text-slate-900 leading-none">ArziWala</h1>
+              <p className="text-[10px] text-blue-600 font-bold tracking-widest uppercase">Letter Generator</p>
             </div>
           </div>
 
+          <div className="flex items-center gap-2">
+            <div className="hidden md:flex items-center bg-slate-100 rounded-lg p-1">
+              {(['en', 'hi', 'both'] as const).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setLanguageMode(m)}
+                  className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
+                    languageMode === m ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  {m === 'en' ? 'English' : m === 'hi' ? 'हिंदी' : 'Both/दोनों'}
+                </button>
+              ))}
+            </div>
+            <button 
+                onClick={scrollToForm}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-md shadow-blue-200 transition-all md:hidden"
+            >
+                Start
+            </button>
+          </div>
         </div>
       </header>
 
-      <main className="flex-grow py-8 px-4 sm:px-6">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 relative">
+      {/* LANDING PAGE VIEW */}
+      {view === 'landing' && (
+        <div className="animate-in fade-in duration-500">
+          {/* Hero */}
+          <section className="bg-white border-b border-slate-200 pt-16 pb-20 px-4 text-center">
+            <div className="max-w-4xl mx-auto space-y-6">
+              <div className="inline-flex items-center space-x-2 bg-blue-50 text-blue-800 px-3 py-1 rounded-full text-xs font-bold border border-blue-100">
+                <ShieldCheck className="w-4 h-4" />
+                <span>100% Free & Secure • No Login Required</span>
+              </div>
+              <h1 className="text-4xl md:text-6xl font-black text-slate-900 tracking-tight leading-tight">
+                Official Letters <br className="hidden md:block" />
+                <span className="text-blue-600">Made Simple.</span>
+              </h1>
+              <p className="text-lg md:text-xl text-slate-500 max-w-2xl mx-auto">
+                Create Bank Applications, Police FIRs, and Office Letters in seconds. 
+                <br className="hidden md:block"/>
+                <span className="text-slate-400">सरकारी पत्र बनाना अब हुआ आसान - बैंक, पुलिस और ऑफिस के लिए।</span>
+              </p>
+              
+              <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
+                <button 
+                  onClick={scrollToForm}
+                  className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white text-lg font-bold py-4 px-8 rounded-xl shadow-xl shadow-blue-200 transition-transform hover:-translate-y-1 flex items-center justify-center gap-2"
+                >
+                  <span>Start Writing Now</span>
+                  <ArrowRight className="w-5 h-5" />
+                </button>
+                <div className="text-slate-400 text-sm font-medium">
+                   ⚡ Instant Download
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* How it Works */}
+          <section className="py-16 px-4 bg-slate-50 border-b border-slate-200">
+             <div className="max-w-6xl mx-auto">
+                <h2 className="text-2xl font-bold text-center mb-12 uppercase tracking-widest text-slate-400">How It Works</h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                   <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 text-center relative overflow-hidden group">
+                      <div className="absolute top-0 left-0 w-2 h-full bg-blue-500"></div>
+                      <div className="mb-4 inline-block p-4 bg-blue-50 rounded-full text-blue-600">
+                         <Files className="w-8 h-8" />
+                      </div>
+                      <h3 className="text-xl font-bold mb-2">1. Choose Template</h3>
+                      <p className="text-slate-500">Select what you need - ATM Lost, Cheque Book, or FIR.</p>
+                   </div>
+                   <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 text-center relative overflow-hidden group">
+                      <div className="absolute top-0 left-0 w-2 h-full bg-indigo-500"></div>
+                      <div className="mb-4 inline-block p-4 bg-indigo-50 rounded-full text-indigo-600">
+                         <PenTool className="w-8 h-8" />
+                      </div>
+                      <h3 className="text-xl font-bold mb-2">2. Fill Details</h3>
+                      <p className="text-slate-500">Enter simple details like Name, Account No, etc.</p>
+                   </div>
+                   <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 text-center relative overflow-hidden group">
+                      <div className="absolute top-0 left-0 w-2 h-full bg-green-500"></div>
+                      <div className="mb-4 inline-block p-4 bg-green-50 rounded-full text-green-600">
+                         <Printer className="w-8 h-8" />
+                      </div>
+                      <h3 className="text-xl font-bold mb-2">3. Download/Print</h3>
+                      <p className="text-slate-500">Get a professional PDF ready to print instantly.</p>
+                   </div>
+                </div>
+             </div>
+          </section>
+
+          {/* Trust Grid */}
+          <section className="py-12 px-4 bg-white">
+             <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-4">
+                <TrustBadge icon={ShieldCheck} title="100% Secure" sub="Data stays on device" />
+                <TrustBadge icon={Zap} title="Instant" sub="No waiting time" />
+                <TrustBadge icon={Landmark} title="Made in India" sub="For Indian needs" />
+                <TrustBadge icon={CheckCircle2} title="Free Forever" sub="No hidden charges" />
+             </div>
+          </section>
+        </div>
+      )}
+
+      {/* APPLICATION VIEW */}
+      {view === 'app' && (
+        <main className="max-w-7xl mx-auto py-8 px-4 grid grid-cols-1 lg:grid-cols-2 gap-8 relative">
           
-          {/* LEFT: FORM SECTION */}
-          <div className="space-y-6 no-print pb-20 lg:pb-0">
+          {/* LEFT: FORM */}
+          <div className="space-y-6 pb-32 lg:pb-0 no-print">
             
-            {/* 1. Application Type & Language */}
-            <FormSection 
-                title="Application Type" 
-                icon={<Settings className="w-5 h-5" />}
-            >
-                <div className="space-y-4">
-                    <div className="flex justify-end mb-2">
-                        <div className="flex items-center space-x-2 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
-                            <Languages className="w-4 h-4 text-slate-400" />
-                            <select 
-                                value={language}
-                                onChange={(e) => setLanguage(e.target.value as Language)}
-                                className="text-xs font-medium text-slate-700 bg-transparent focus:outline-none cursor-pointer"
-                            >
-                                <option>English (Official)</option>
-                                <option>Hindi (Formal)</option>
-                            </select>
-                        </div>
-                    </div>
+            {/* 1. Category Selection */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+               <SectionHeader icon={Settings} title="Select Letter Type / पत्र का प्रकार" />
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <div className="space-y-1">
+                   <label className="text-xs font-bold text-slate-500 uppercase">Category / श्रेणी</label>
+                   <select 
+                      className="w-full p-3 border rounded-lg bg-slate-50 font-medium"
+                      value={appType}
+                      onChange={(e) => setAppType(e.target.value as ApplicationType)}
+                   >
+                     {Object.values(ApplicationType).map(t => <option key={t} value={t}>{t}</option>)}
+                   </select>
+                 </div>
+                 <div className="space-y-1">
+                   <label className="text-xs font-bold text-slate-500 uppercase">Template / टेम्पलेट</label>
+                   <select 
+                      className="w-full p-3 border rounded-lg bg-blue-50 font-medium text-blue-900 border-blue-200"
+                      value={templateId}
+                      onChange={(e) => setTemplateId(e.target.value)}
+                   >
+                     {currentTemplates.map(t => <option key={t.id} value={t.id}>{t.labelEn}</option>)}
+                   </select>
+                 </div>
+               </div>
+            </div>
 
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                        Select Category / श्रेणी चुनें
-                        </label>
-                        <div className="relative">
-                            <select
-                                value={appType}
-                                onChange={(e) => setAppType(e.target.value as ApplicationType)}
-                                className="w-full appearance-none border border-slate-300 rounded-lg px-4 py-3 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-medium text-slate-800 pr-10 shadow-sm"
-                            >
-                                {Object.values(ApplicationType).map((type) => (
-                                <option key={type} value={type}>{type}</option>
-                                ))}
-                            </select>
-                            <div className="absolute right-3 top-3 text-slate-400 pointer-events-none">
-                                {getIcon()}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </FormSection>
-
-            {/* 2. Sender Details */}
-            <FormSection 
-                title="Your Details (Sender)" 
-                icon={<User className="w-5 h-5" />}
-            >
-                <div className="space-y-4">
+            {/* 2. Dynamic Form */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+               <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                  <div className="flex items-center space-x-2 text-slate-700">
+                    <User className="w-5 h-5" />
+                    <span className="font-bold text-sm uppercase">Fill Details</span>
+                  </div>
+                  <div className="flex gap-2">
+                     <button onClick={handleReset} className="text-xs text-slate-400 hover:text-red-500 underline flex items-center gap-1">
+                        <Eraser className="w-3 h-3" /> Reset
+                     </button>
+                     <span className="text-xs font-semibold bg-green-100 text-green-700 px-2 py-1 rounded">
+                        {activeTemplate.type === 'instant' ? '⚡ Instant' : '🤖 AI Powered'}
+                     </span>
+                  </div>
+               </div>
+               
+               <div className="p-6 space-y-6">
+                  {/* Sender Basic */}
+                  {(isFieldRequired('senderName') || isFieldRequired('senderAddress')) && (
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <Input 
-                        label="Your Name / आपका नाम *" 
-                        name="senderName" 
-                        value={formData.senderName} 
-                        onChange={handleInputChange} 
-                        required
-                        />
-                        <Input 
-                        label="City / शहर *" 
-                        name="city" 
-                        value={formData.city} 
-                        onChange={handleInputChange} 
-                        required
-                        />
+                       {isFieldRequired('senderName') && (
+                          <Input label={getLabel('name')} name="senderName" value={formData.senderName} onChange={handleInputChange} placeholder="e.g. Ramesh Kumar" />
+                       )}
+                       {isFieldRequired('fatherName') && (
+                          <Input label={getLabel('fatherName')} name="fatherName" value={formData.fatherName} onChange={handleInputChange} placeholder="e.g. Suresh Kumar" />
+                       )}
+                       <Input label={getLabel('phone')} name="phone" value={formData.phone} onChange={handleInputChange} placeholder="98765XXXXX" />
+                       <Input label={getLabel('city')} name="city" value={formData.city} onChange={handleInputChange} />
+                     </div>
+                  )}
+                  {isFieldRequired('senderAddress') && (
+                      <Input label={getLabel('address')} name="senderAddress" value={formData.senderAddress} onChange={handleInputChange} placeholder="House No, Colony, City" />
+                  )}
+
+                  {/* Bank Details */}
+                  {appType.includes('Bank') || appType.includes('ATM') ? (
+                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 space-y-4">
+                        <SectionHeader icon={Landmark} title="Bank Details" />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <Input label={getLabel('bankName')} name="bankName" value={formData.bankName} onChange={handleInputChange} />
+                            <Input label={getLabel('branchName')} name="branchName" value={formData.branchName} onChange={handleInputChange} />
+                            <Input label={getLabel('accountNumber')} name="accountNumber" value={formData.accountNumber} onChange={handleInputChange} />
+                            {isFieldRequired('atmCardLastDigits') && (
+                                <Input label={getLabel('cardLastDigits')} name="atmCardLastDigits" value={formData.atmCardLastDigits} onChange={handleInputChange} maxLength={4} />
+                            )}
+                        </div>
                     </div>
-                    <Input 
-                        label="Your Address / पूरा पता *" 
-                        name="senderAddress" 
-                        value={formData.senderAddress} 
+                  ) : null}
+
+                  {/* Police Details */}
+                  {appType.includes('Police') ? (
+                    <div className="bg-red-50 p-4 rounded-lg border border-red-100 space-y-4">
+                         <SectionHeader icon={ShieldAlert} title="Incident Details" />
+                         <Input label={getLabel('policeStation')} name="policeStation" value={formData.policeStation} onChange={handleInputChange} />
+                         <div className="grid grid-cols-2 gap-4">
+                            <Input label={getLabel('incidentDate')} name="incidentDate" type="date" value={formData.incidentDate} onChange={handleInputChange} />
+                            <Input label={getLabel('incidentTime')} name="incidentTime" type="time" value={formData.incidentTime} onChange={handleInputChange} />
+                         </div>
+                         {isFieldRequired('mobileDetails') && (
+                            <Input label={getLabel('mobileDetails')} name="mobileDetails" value={formData.mobileDetails} onChange={handleInputChange} placeholder="Model Name, IMEI Number" />
+                         )}
+                         <Input label={getLabel('incidentLocation')} name="incidentLocation" value={formData.incidentLocation} onChange={handleInputChange} />
+                    </div>
+                  ) : null}
+
+                  {/* Custom Body / Reason */}
+                  {(isFieldRequired('customBody') || isFieldRequired('incidentDetails')) && (
+                     <TextArea 
+                        label={getLabel('reason')} 
+                        name="customBody" 
+                        value={formData.customBody} 
                         onChange={handleInputChange} 
-                        placeholder="House No, Street, Locality"
-                    />
-                </div>
-            </FormSection>
+                        placeholder="Explain your request in detail..."
+                        rows={4}
+                     />
+                  )}
+               </div>
+            </div>
 
-            {/* 3. Recipient Details */}
-            <FormSection 
-                title="Recipient Details" 
-                icon={<Building2 className="w-5 h-5" />}
-            >
-                 <div className="grid grid-cols-1 gap-4">
-                    <Input 
-                    label="Recipient Title / पद (e.g. Manager) *" 
-                    name="recipientTitle" 
-                    value={formData.recipientTitle} 
-                    onChange={handleInputChange} 
-                    required
-                    />
-                    <Input 
-                    label="Recipient Address / कार्यालय का पता" 
-                    name="recipientAddress" 
-                    value={formData.recipientAddress} 
-                    onChange={handleInputChange} 
-                    />
-                </div>
-            </FormSection>
-
-            {/* 4. Application Specifics */}
-            <FormSection 
-                title="Application Details" 
-                icon={<FileText className="w-5 h-5" />}
-            >
-                <div className="space-y-5">
-                    
-                    {/* Scenario / Template Selector */}
-                    <div className="space-y-2">
-                         <label className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center space-x-1">
-                             <span>Letter Purpose</span>
-                             <span className="bg-blue-100 text-blue-700 text-[9px] px-1.5 py-0.5 rounded-full tracking-normal capitalize">Faster</span>
+            {/* GENERATE BUTTON */}
+            <div className="space-y-4">
+                {activeTemplate.type === 'ai' && (
+                    <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-xl flex items-center justify-between">
+                         <label className="text-sm font-bold text-indigo-900 flex items-center gap-2">
+                             <Languages className="w-4 h-4" />
+                             {getLabel('letterLang')}:
                          </label>
-                         <div className="relative">
-                            <select
-                                value={templateKey}
-                                onChange={(e) => setTemplateKey(e.target.value)}
-                                className="w-full appearance-none border border-blue-200 rounded-lg px-4 py-3 bg-blue-50/30 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-800 pr-10 shadow-sm cursor-pointer hover:bg-blue-50/60 transition-colors"
-                            >
-                                {getAvailableTemplates().map((t) => (
-                                    <option key={t.value} value={t.value}>{t.label}</option>
-                                ))}
-                            </select>
-                            <div className="absolute right-3 top-3 text-slate-400 pointer-events-none">
-                                <ChevronDown className="w-5 h-5" />
-                            </div>
+                         <div className="flex bg-white rounded-lg p-1 border border-indigo-200">
+                             <button 
+                                onClick={() => setOutputLang('en')}
+                                className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all ${outputLang === 'en' ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:bg-indigo-50'}`}
+                             >
+                                English
+                             </button>
+                             <button 
+                                onClick={() => setOutputLang('hi')}
+                                className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all ${outputLang === 'hi' ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:bg-indigo-50'}`}
+                             >
+                                हिंदी
+                             </button>
                          </div>
-                    </div>
-
-                    {/* Secure Bank Fields */}
-                    {(appType === ApplicationType.BANK_TRANSFER || appType === ApplicationType.ATM_ISSUE) && (
-                        <div className="bg-blue-50/50 rounded-lg border border-blue-100 p-4 space-y-4">
-                            <div className="flex items-center space-x-2 text-blue-800 mb-2">
-                                <Lock className="w-4 h-4" />
-                                <span className="text-xs font-bold uppercase">Secure Banking Data</span>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <Input 
-                                        label="Account No / खाता संख्या" 
-                                        name="accountNumber" 
-                                        value={formData.accountNumber} 
-                                        onChange={handleInputChange} 
-                                        placeholder="11-16 Digits"
-                                        className={!isAccountNumberValid ? "border-red-500 focus:ring-red-200" : ""}
-                                    />
-                                    {!isAccountNumberValid && (
-                                        <p className="text-[10px] text-red-600 mt-1 font-medium">Valid digits only (11-16)</p>
-                                    )}
-                                </div>
-                                <Input 
-                                    label="CIF / Branch Code" 
-                                    name="cifNumber" 
-                                    value={formData.cifNumber} 
-                                    onChange={handleInputChange} 
-                                />
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Electricity Fields */}
-                    {appType === ApplicationType.ELECTRICITY_METER && (
-                        <div className="bg-yellow-50/50 rounded-lg border border-yellow-100 p-4">
-                             <div className="flex items-center space-x-2 text-yellow-800 mb-4">
-                                <Zap className="w-4 h-4" />
-                                <span className="text-xs font-bold uppercase">Connection Data</span>
-                            </div>
-                            <Input 
-                                label="Consumer No (K No) / उपभोक्ता संख्या" 
-                                name="consumerNumber" 
-                                value={formData.consumerNumber} 
-                                onChange={handleInputChange} 
-                            />
-                        </div>
-                    )}
-
-                    {/* Incident / Reason / Custom Body */}
-                    {appType === ApplicationType.POLICE_COMPLAINT && templateKey !== 'lost_item' && (
-                         <div className="bg-red-50/50 rounded-lg border border-red-100 p-4">
-                            <TextArea 
-                                label="Incident Details / घटना का विवरण *" 
-                                name="incidentDetails" 
-                                value={formData.incidentDetails} 
-                                onChange={handleInputChange} 
-                                placeholder="Where? When? What happened?"
-                                rows={4}
-                                required
-                            />
-                         </div>
-                    )}
-
-                    {/* CUSTOM REASON: Only show if template is 'custom' OR if specific template requires it (like ATM Lost with details) */}
-                    {(templateKey === 'custom' || templateKey === 'atm_lost' || templateKey === 'lost_item') && (
-                        <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                             <TextArea 
-                                label={templateKey === 'atm_lost' || templateKey === 'lost_item' ? "Item/Loss Details (What/Where/When)" : "Reason / Custom Request *"}
-                                name="customBody" 
-                                value={formData.customBody} 
-                                onChange={handleInputChange} 
-                                placeholder={templateKey === 'atm_lost' ? "e.g. Lost in Market on Sunday..." : "Briefly explain why you need this..."}
-                                rows={4}
-                                required
-                            />
-                        </div>
-                    )}
-
-                </div>
-            </FormSection>
-
-            {/* Validation Errors & Submit */}
-            <div className="space-y-4 pt-2">
-                 {/* Validation Errors */}
-                {!isFormValid && (
-                    <div className="bg-amber-50 text-amber-800 text-xs p-3 rounded-lg border border-amber-100 flex items-start space-x-2 animate-pulse">
-                        <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                        <div>
-                            <p className="font-bold mb-1">Please complete the form:</p>
-                            <ul className="list-disc list-inside space-y-0.5 opacity-80">
-                                {formData.senderName.trim().length === 0 && <li>Enter your name</li>}
-                                {formData.recipientTitle.trim().length === 0 && <li>Check recipient details</li>}
-                                {!isReasonProvided && <li>Provide a reason or incident details</li>}
-                                {!isAccountNumberValid && <li>Check account number digits</li>}
-                            </ul>
-                        </div>
                     </div>
                 )}
-
-                {/* Submit Button */}
+                
                 <button
-                    onClick={handleGenerate}
-                    disabled={loading || !isFormValid}
-                    className="w-full bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 disabled:text-slate-500 text-white font-bold py-4 px-4 rounded-xl shadow-lg shadow-slate-200 transition-all flex items-center justify-center space-x-3 text-sm tracking-wide uppercase group"
+                onClick={handleGenerate}
+                disabled={loading || !formData.senderName}
+                className="w-full bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold py-4 px-6 rounded-xl shadow-lg shadow-slate-300 transition-all flex items-center justify-center gap-3 text-lg"
                 >
-                    {loading ? (
-                    <>
-                        <Loader2 className="animate-spin w-5 h-5" />
-                        <span>Drafting Letter...</span>
-                    </>
-                    ) : (
-                    <>
-                        <PenTool className="w-5 h-5 group-hover:rotate-12 transition-transform" />
-                        <span>{templateKey !== 'custom' ? 'Generate Instantly' : 'Generate with AI'}</span>
-                    </>
-                    )}
+                {loading ? <Loader2 className="animate-spin" /> : <PenTool className="w-5 h-5" />}
+                <span>{activeTemplate.type === 'instant' ? getLabel('generate') : `Generate in ${outputLang === 'en' ? 'English' : 'Hindi'}`}</span>
                 </button>
+            </div>
+            
+            {/* Mobile Preview Button (only if generated) */}
+            {generatedLetter && (
+               <button
+                  onClick={() => setShowModal(true)}
+                  className="w-full mt-4 bg-white border border-slate-300 text-slate-700 font-bold py-3 px-6 rounded-xl shadow-sm lg:hidden flex items-center justify-center gap-2"
+               >
+                  <Eye className="w-5 h-5" />
+                  <span>{getLabel('preview')}</span>
+               </button>
+            )}
 
-                 {/* Support Button */}
-                 <div className="pt-2 text-center">
-                         <a 
-                            href="https://buymeacoffee.com" 
-                            target="_blank" 
-                            rel="noreferrer"
-                            className="inline-flex items-center space-x-2 text-slate-400 hover:text-amber-600 transition-colors text-xs font-medium"
-                         >
-                            <Coffee className="w-4 h-4" />
-                            <span>Buy me a Chai</span>
-                         </a>
+            {/* UPI DONATION SECTION */}
+            <div className="mt-8 bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl border border-orange-100 p-6 text-center">
+                 <div className="inline-flex items-center space-x-2 bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-xs font-bold mb-4">
+                    <Coffee className="w-3 h-3" />
+                    <span>Support Developer</span>
+                 </div>
+                 <h3 className="text-lg font-bold text-slate-800 mb-2">Useful? Buy me a chai! ☕</h3>
+                 <p className="text-sm text-slate-500 mb-6">This tool is free and private. Your support keeps it running.</p>
+                 
+                 <div className="flex flex-col md:flex-row items-center justify-center gap-6">
+                    {/* Desktop QR Placeholder */}
+                    <div className="hidden md:block bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
+                       <div className="w-24 h-24 bg-slate-800 flex items-center justify-center text-white rounded">
+                          <QrCode className="w-12 h-12 opacity-50" />
+                       </div>
+                       <div className="text-[10px] mt-1 font-mono text-slate-500">yourname@okicici</div>
                     </div>
+
+                    {/* Mobile UPI Button */}
+                    <div className="space-y-3 w-full md:w-auto">
+                        <a 
+                           href="upi://pay?pa=yourname@okicici&pn=MeriArzi&cu=INR" 
+                           className="flex items-center justify-center w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-colors gap-2"
+                        >
+                           <Heart className="w-4 h-4 fill-white" />
+                           <span>Donate via UPI App</span>
+                        </a>
+                        <p className="text-xs text-slate-400">Works with GPay, PhonePe, Paytm</p>
+                    </div>
+                 </div>
             </div>
 
           </div>
 
-          {/* RIGHT: PREVIEW SECTION (Sticky + A4 Realistic Look) */}
-          <div className="flex flex-col space-y-4 lg:sticky lg:top-24 lg:self-start lg:h-[calc(100vh-8rem)]">
-             {/* Preview Toolbar */}
-             <div className="flex items-center justify-between no-print shrink-0">
-                <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">Letter Preview</h2>
-                <div className="flex items-center space-x-2">
-                   {/* Fit to Page Toggle */}
-                   {generatedLetter && (
-                      <button
-                        onClick={() => setFitToPage(!fitToPage)}
-                        className={`flex items-center space-x-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                          fitToPage 
-                            ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-200' 
-                            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-                        }`}
-                        title={fitToPage ? "Restore standard view" : "Shrink to fit"}
-                      >
-                         {fitToPage ? <Maximize className="w-3.5 h-3.5" /> : <Minimize className="w-3.5 h-3.5" />}
-                         <span>{fitToPage ? "Expand" : "Fit"}</span>
-                      </button>
-                   )}
-
-                   {generatedLetter && (
-                      <button 
-                        onClick={() => setGeneratedLetter('')}
-                        className="text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-100 rounded-full transition-colors"
-                        title="Clear"
-                      >
-                        <RefreshCcw className="w-4 h-4" />
-                      </button>
-                   )}
+          {/* RIGHT: DESKTOP PREVIEW (Hidden on Mobile) */}
+          <div className="hidden lg:flex lg:sticky lg:top-24 lg:self-start h-auto lg:h-[calc(100vh-8rem)] flex-col gap-4">
+             <div className="flex items-center justify-between no-print bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
+                <span className="text-xs font-bold uppercase text-slate-500 ml-2">Preview (Editable)</span>
+                <div className="flex gap-2">
+                   <button onClick={() => setFitToPage(!fitToPage)} className="p-2 hover:bg-slate-100 rounded text-slate-600" title="Fit">
+                      {fitToPage ? <Maximize className="w-4 h-4" /> : <Minimize className="w-4 h-4" />}
+                   </button>
+                   <button onClick={() => setShowModal(true)} className="p-2 hover:bg-blue-50 rounded text-blue-600 font-bold flex items-center gap-2" title="Print/PDF">
+                      <Printer className="w-4 h-4" />
+                      <span className="text-xs">Print / PDF</span>
+                   </button>
                 </div>
              </div>
 
-             {/* The A4 Sheet Area */}
-             <div className="flex-grow bg-slate-200/50 rounded-xl p-4 md:p-8 flex justify-center items-start overflow-y-auto border border-slate-200 shadow-inner no-print custom-scrollbar">
-                {generatedLetter ? (
-                     <div 
-                        className={`w-full max-w-[21cm] bg-white shadow-2xl min-h-[29.7cm] text-slate-900 font-serif whitespace-pre-wrap transition-all duration-300 ease-in-out
-                            ${fitToPage 
-                                ? 'p-[1.5cm] text-[10pt] leading-snug' 
-                                : 'p-[2.54cm] text-[11pt] md:text-[12pt] leading-relaxed'
-                            }`}
-                     >
-                        {generatedLetter}
-                     </div>
-                ) : (
-                    // Improved Empty State: Looks like a blank paper
-                    <div className="w-full max-w-[21cm] bg-white shadow-md min-h-[29.7cm] p-[2.54cm] flex flex-col items-center justify-center text-slate-300 space-y-6 opacity-70">
-                         <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-4">
-                            <FileText className="w-10 h-10 text-slate-300" />
-                         </div>
-                         <div className="text-center space-y-2">
-                             <p className="text-sm font-bold uppercase tracking-widest text-slate-400">Preview Area</p>
-                             <p className="text-xs text-slate-400 max-w-[200px]">Fill the form on the left to generate your professional document here.</p>
-                         </div>
-                    </div>
-                )}
-             </div>
-
-             {/* Actions Toolbar */}
-             {generatedLetter && (
-                <div className="grid grid-cols-2 gap-3 no-print shrink-0">
-                    <button
-                        onClick={handleCopy}
-                        className="bg-white hover:bg-slate-50 text-slate-700 font-bold py-3 px-4 rounded-xl shadow-sm border border-slate-200 transition-all flex items-center justify-center space-x-2"
-                    >
-                        <Files className="w-4 h-4" />
-                        <span>Copy Text</span>
-                    </button>
-                    <button
-                        onClick={handlePrint}
-                        className="bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-blue-200 transition-all flex items-center justify-center space-x-2"
-                    >
-                        <Printer className="w-4 h-4" />
-                        <span>Download PDF</span>
-                    </button>
+             <div className="flex-grow bg-slate-200 rounded-xl overflow-hidden shadow-inner border border-slate-300 relative">
+                <div className="absolute inset-0 overflow-auto p-4 md:p-8 flex justify-center [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                    {generatedLetter ? (
+                        <div 
+                            className={`bg-white shadow-2xl text-slate-900 transition-all duration-300 origin-top
+                                ${fitToPage ? 'w-full scale-95' : 'w-[210mm] min-h-[297mm]'}
+                            `}
+                            style={{ padding: '0' }}
+                        >
+                            {/* EDITABLE TEXTAREA ACTING AS PAGE */}
+                            <textarea 
+                                className="w-full h-full resize-none outline-none border-none font-serif leading-relaxed text-[12pt] p-[25mm_20mm]"
+                                value={generatedLetter}
+                                onChange={(e) => setGeneratedLetter(e.target.value)}
+                                spellCheck={false}
+                            />
+                        </div>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center text-slate-400 h-full space-y-4">
+                            <FileText className="w-16 h-16 opacity-20" />
+                            <p className="font-medium text-sm">Fill the form to see preview</p>
+                        </div>
+                    )}
                 </div>
-             )}
-             
-             {/* Hidden Div for Actual Printing */}
-             <div id="printable-letter" className="hidden">
-                 {generatedLetter}
              </div>
           </div>
 
-        </div>
-      </main>
+        </main>
+      )}
+      
+      {/* CROSS-PLATFORM PREVIEW MODAL */}
+      <PreviewModal 
+        isOpen={showModal} 
+        onClose={() => setShowModal(false)} 
+        letterContent={generatedLetter} 
+      />
+      
+      {/* Printable Hidden Area (for direct browser print fallback) */}
+      <div id="printable-letter" className="hidden">
+           {generatedLetter}
+      </div>
     </div>
   );
 };

@@ -1,10 +1,12 @@
-import { FormData, ApplicationType, Language } from '../types';
+import { FormData, ApplicationType } from '../types';
 
 // Privacy Shield: These placeholders are sent to the AI instead of real data.
 const SAFE_PLACEHOLDERS = {
   ACCOUNT_NUMBER: "[NUM_PLACEHOLDER]",
   CIF_NUMBER: "[CIF_PLACEHOLDER]",
   CONSUMER_NUMBER: "[ID_PLACEHOLDER]",
+  PHONE: "[PHONE_PLACEHOLDER]",
+  MOBILE_IMEI: "[IMEI_PLACEHOLDER]"
 };
 
 /**
@@ -25,40 +27,44 @@ const cleanAIOutput = (text: string): string => {
     .trim();
 };
 
-export const generateLetterText = async (type: ApplicationType, data: FormData, language: Language): Promise<string> => {
+export const generateLetterText = async (type: ApplicationType, data: FormData, language: 'en' | 'hi'): Promise<string> => {
   
   // 1. DETERMINE CONTEXT & PLACEHOLDERS
   let specificRefNumber = '';
   
-  switch (type) {
-    case ApplicationType.BANK_TRANSFER:
-    case ApplicationType.ATM_ISSUE:
+  if (type.includes('Bank') || type.includes('ATM')) {
       specificRefNumber = `Account No: ${SAFE_PLACEHOLDERS.ACCOUNT_NUMBER}`;
       if (data.cifNumber) specificRefNumber += `, CIF: ${SAFE_PLACEHOLDERS.CIF_NUMBER}`;
-      break;
-    case ApplicationType.POLICE_COMPLAINT:
-      specificRefNumber = "Ref: New Complaint";
-      break;
-    case ApplicationType.ELECTRICITY_METER:
+  } else if (type.includes('Police')) {
+      specificRefNumber = `Subject: Complaint at ${data.policeStation}`;
+  } else if (type.includes('Electricity')) {
       specificRefNumber = `Consumer No: ${SAFE_PLACEHOLDERS.CONSUMER_NUMBER}`;
-      break;
-    default:
+  } else {
       specificRefNumber = "Ref: General Application";
-      break;
   }
 
-  const reasonContent = data.customBody || data.incidentDetails || "As per subject.";
+  // Build the reason content including new fields
+  let extraDetails = "";
+  if (data.incidentDate) extraDetails += `\nIncident Date: ${data.incidentDate} at ${data.incidentTime || 'approx time'}.`;
+  if (data.incidentLocation) extraDetails += `\nLocation: ${data.incidentLocation}.`;
+  if (data.vehicleDetails) extraDetails += `\nVehicle Details: ${data.vehicleDetails}.`;
+  
+  const reasonContent = (data.customBody || data.incidentDetails || "As per subject.") + extraDetails;
   const subjectLine = data.subject || `Application for ${type}`;
 
   // 2. CONSTRUCT THE STRONG, DETAILED PROMPT
-  // This matches the requested strict structure.
+  const langInstruction = language === 'hi' 
+    ? "Write the letter entirely in formal HINDI (Devanagari script). Use standard formal Hindi vocabulary (e.g., 'Savinay Nivedan', 'Prarthi')." 
+    : "Write the letter in formal English.";
+
   const prompt = `Act as a professional Indian drafter.
-Write a DETAILED, comprehensive formal application letter.
+Write a DETAILED, formal application letter.
 Subject: ${subjectLine}
-Input Language: ${language} (Translate to formal ${language} if needed).
+Target Language: ${langInstruction}
 
 Data Points:
-- Sender: ${data.senderName}, ${data.senderAddress}, ${data.city}
+- Sender: ${data.senderName} (S/o ${data.fatherName || '__________'}), ${data.senderAddress}, ${data.city}
+- Contact: ${SAFE_PLACEHOLDERS.PHONE}
 - Date: ${data.date}
 - Recipient: ${data.recipientTitle}, ${data.recipientAddress}
 - Reference: ${specificRefNumber}
@@ -66,17 +72,15 @@ Data Points:
 MANDATORY STRUCTURE:
 1. Full Address Block (From/To).
 2. Professional Subject Line.
-3. Body Paragraph 1: State the account/reference details clearly (${specificRefNumber}).
-4. Body Paragraph 2: ELABORATE on the reason "${reasonContent}". Make it sound urgent and necessary. Expand this section to at least 3 sentences.
-5. Standard Closing: "I request you to kindly process this immediately." followed by "Yours faithfully," and the Sender Name.
+3. Body Paragraph 1: State the account/reference details clearly.
+4. Body Paragraph 2: ELABORATE on the reason "${reasonContent}". Make it sound urgent and necessary.
+5. Standard Closing: "I request you to kindly take necessary action." followed by "Yours faithfully," (or Hindi equivalent) and the Sender Name.
 
 IMPORTANT: DO NOT add a "[Signature]" placeholder. Just end with the Sender Name.
-
-DO NOT be brief. Write a full standard A4 letter. Use "__________" for missing details.`;
+DO NOT be brief. Write a full standard A4 letter.`;
 
   try {
     // 3. SEND TO AI
-    // We use a random seed to ensure some variety if the user regenerates
     const seed = Math.floor(Math.random() * 1000);
     const response = await fetch(`https://text.pollinations.ai/${encodeURIComponent(prompt)}?seed=${seed}`);
     
@@ -89,26 +93,17 @@ DO NOT be brief. Write a full standard A4 letter. Use "__________" for missing d
     text = cleanAIOutput(text);
 
     // 5. PRIVACY SHIELD REPLACEMENT (Client-Side)
-    // We replace the placeholders with the actual sensitive data HERE, so AI never saw it.
     const escapeRegExp = (string: string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-    if (data.accountNumber) {
-      text = text.replace(new RegExp(escapeRegExp(SAFE_PLACEHOLDERS.ACCOUNT_NUMBER), 'g'), data.accountNumber);
-    } else {
-      text = text.replace(new RegExp(escapeRegExp(SAFE_PLACEHOLDERS.ACCOUNT_NUMBER), 'g'), '__________');
-    }
+    const replacer = (placeholder: string, actual: string) => {
+        text = text.replace(new RegExp(escapeRegExp(placeholder), 'g'), actual || '__________');
+    };
 
-    if (data.cifNumber) {
-      text = text.replace(new RegExp(escapeRegExp(SAFE_PLACEHOLDERS.CIF_NUMBER), 'g'), data.cifNumber);
-    } else {
-      text = text.replace(new RegExp(escapeRegExp(SAFE_PLACEHOLDERS.CIF_NUMBER), 'g'), '');
-    }
-
-    if (data.consumerNumber) {
-      text = text.replace(new RegExp(escapeRegExp(SAFE_PLACEHOLDERS.CONSUMER_NUMBER), 'g'), data.consumerNumber);
-    } else {
-      text = text.replace(new RegExp(escapeRegExp(SAFE_PLACEHOLDERS.CONSUMER_NUMBER), 'g'), '__________');
-    }
+    replacer(SAFE_PLACEHOLDERS.ACCOUNT_NUMBER, data.accountNumber);
+    replacer(SAFE_PLACEHOLDERS.CIF_NUMBER, data.cifNumber);
+    replacer(SAFE_PLACEHOLDERS.CONSUMER_NUMBER, data.consumerNumber);
+    replacer(SAFE_PLACEHOLDERS.PHONE, data.phone);
+    replacer(SAFE_PLACEHOLDERS.MOBILE_IMEI, data.mobileDetails);
 
     return text;
   } catch (error) {
