@@ -1,56 +1,111 @@
-export enum ApplicationType {
-  BANK_TRANSFER = 'Bank Transfer / Account Services',
-  ATM_ISSUE = 'ATM / Debit Card Issues',
-  POLICE_COMPLAINT = 'Police Complaint (FIR/NCR)',
-  ELECTRICITY_METER = 'Electricity / Water Department',
-  SCHOOL_LEAVE = 'School / College Applications',
-  OTHER = 'Other / General Application'
-}
+export type ApplicationType = 
+  | "School Transfer Certificate"
+  | "Character Certificate"
+  | "College Admission Request"
+  | "Scholarship Application"
+  | "Exam Name/DOB Correction"
+  | "Duplicate Marksheet Request"
+  | "Caste Certificate (जाति प्रमाण पत्र)"
+  | "Income Certificate (आय प्रमाण पत्र)"
+  | "Domicile Certificate (निवास प्रमाण पत्र)"
+  | "OBC Non-Creamy Layer Certificate"
+  | "EWS Certificate"
+  | "FIR Registration Request"
+  | "Police Verification"
+  | "General Police Complaint"
+  | "Missing Person/Item Report"
+  | "New Account Opening"
+  | "Bank Statement Request"
+  | "Name Change in Bank"
+  | "Mobile Number Update"
+  | "ATM Fraud Complaint"
+  | "Cheque Book Request"
+  | "New Electricity Connection"
+  | "Electricity Complaint"
+  | "Electricity Name Transfer"
+  | "Water Connection Request"
+  | "PM Kisan Yojana Issue"
+  | "Ration Card Application"
+  | "Pension Application"
+  | "Labour Card Application"
+  | "RTI Application"
+  | "General Application"
+  | string;
 
 export type LanguageMode = 'en' | 'hi' | 'both';
 
 export interface FormData {
-  // --- Personal Details ---
+  // Basic Info
   senderName: string;
-  fatherName: string; // Often required in Indian formal letters
+  fatherName?: string;
   senderAddress: string;
   city: string;
-  phone: string;
-  email: string;
-  date: string;
+  phone?: string;
+  email?: string;
+  date?: string;
   
-  // --- Recipient Details ---
-  recipientTitle: string; // e.g., The Branch Manager
-  recipientAddress: string; // e.g., SBI, Main Branch, Delhi
+  // Recipient
+  recipientTitle: string;
+  recipientAddress: string;
   
-  // --- Common ---
-  subject: string;
+  // Application Details
+  subject?: string;
+  customBody?: string;
+  purpose?: string;
   
-  // --- Banking Specifics ---
-  accountNumber: string;
-  cifNumber: string;
-  bankName: string;
-  branchName: string;
-  ifscCode: string;
-  atmCardLastDigits: string;
+  // Identity Documents
+  aadharNumber?: string;
+  rationCardNumber?: string;
   
-  // --- Police/Incident Specifics ---
-  policeStation: string;
-  incidentDate: string;
-  incidentTime: string;
-  incidentLocation: string;
-  vehicleDetails: string; // For vehicle theft
-  mobileDetails: string; // For mobile theft (IMEI/Model)
-  incidentDetails: string; // General description
+  // Education Related
+  schoolName?: string;
+  institutionName?: string;
+  className?: string;
+  rollNumber?: string;
+  courseName?: string;
+  previousMarks?: string;
+  reason?: string;
   
-  // --- Utility Specifics ---
-  consumerNumber: string; // K Number / Meter Number
+  // Police Related
+  policeStation?: string;
+  incidentDate?: string;
+  incidentTime?: string;
+  incidentLocation?: string;
+  incidentDetails?: string;
+  accusedDetails?: string;
+  witnessDetails?: string;
+  vehicleDetails?: string;
   
-  // --- Custom/AI ---
-  customBody: string; // Extra details / Reason
+  // Bank Related
+  bankName?: string;
+  branchName?: string;
+  accountNumber?: string;
+  accountType?: string;
+  cifNumber?: string;
+  ifscCode?: string;
+  atmCardLastDigits?: string; // Kept for compatibility
+  
+  // Utility Related
+  consumerNumber?: string;
+  mobileDetails?: string;
+  
+  // Certificate Related
+  casteCategory?: string;
+  casteType?: string;
+  annualIncome?: string;
+  incomeInWords?: string;
+  incomeSource?: string;
+  residenceYears?: string;
+  block?: string;
+  
+  // RTI Related
+  rtiQuery?: string;
+  rtiPeriod?: string;
+  paymentMode?: string;
 }
 
 export const INITIAL_FORM_DATA: FormData = {
+  // Basic Info - Initialize ALL to empty strings
   senderName: '',
   fatherName: '',
   senderAddress: '',
@@ -62,22 +117,56 @@ export const INITIAL_FORM_DATA: FormData = {
   recipientTitle: '',
   recipientAddress: '',
   subject: '',
+  customBody: '',
+  purpose: '',
+
+  // Identity
+  aadharNumber: '',
+  rationCardNumber: '',
   
-  accountNumber: '',
-  cifNumber: '',
+  // Bank
   bankName: 'State Bank of India',
   branchName: '',
+  accountNumber: '',
+  accountType: '',
+  cifNumber: '',
   ifscCode: '',
   atmCardLastDigits: '',
   
+  // Police
   policeStation: '',
   incidentDate: '',
   incidentTime: '',
   incidentLocation: '',
-  vehicleDetails: '',
-  mobileDetails: '',
   incidentDetails: '',
-  
+  accusedDetails: '',
+  witnessDetails: '',
+  vehicleDetails: '',
+
+  // School
+  schoolName: '',
+  institutionName: '',
+  className: '',
+  rollNumber: '',
+  courseName: '',
+  previousMarks: '',
+  reason: '',
+
+  // Utility
   consumerNumber: '',
-  customBody: ''
+  mobileDetails: '',
+
+  // Certificate
+  casteCategory: '',
+  casteType: '',
+  annualIncome: '',
+  incomeInWords: '',
+  incomeSource: '',
+  residenceYears: '',
+  block: '',
+
+  // RTI
+  rtiQuery: '',
+  rtiPeriod: '',
+  paymentMode: ''
 };

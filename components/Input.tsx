@@ -6,14 +6,24 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
 
 export const Input: React.FC<InputProps> = ({ label, className = '', ...props }) => {
   return (
-    <div className="flex flex-col space-y-1">
-      <label className="text-sm font-semibold text-slate-700 uppercase tracking-wide">
+    <div className="group flex flex-col gap-1.5 w-full">
+      <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1 transition-colors group-focus-within:text-blue-600">
         {label}
       </label>
-      <input
-        className={`border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-700 bg-white shadow-sm transition-all ${className}`}
-        {...props}
-      />
+      <div className="relative">
+        <input
+          className={`
+            w-full bg-white text-slate-900 border border-slate-200 rounded-xl px-4 py-3 
+            placeholder:text-slate-400 text-sm font-medium shadow-sm
+            transition-all duration-200 ease-in-out
+            focus:outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10 
+            hover:border-slate-300
+            disabled:opacity-50 disabled:cursor-not-allowed
+            ${className}
+          `}
+          {...props}
+        />
+      </div>
     </div>
   );
 };
@@ -24,14 +34,24 @@ interface TextAreaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement
 
 export const TextArea: React.FC<TextAreaProps> = ({ label, className = '', ...props }) => {
   return (
-    <div className="flex flex-col space-y-1">
-      <label className="text-sm font-semibold text-slate-700 uppercase tracking-wide">
+    <div className="group flex flex-col gap-1.5 w-full">
+      <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1 transition-colors group-focus-within:text-blue-600">
         {label}
       </label>
-      <textarea
-        className={`border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-700 bg-white shadow-sm min-h-[100px] ${className}`}
-        {...props}
-      />
+      <div className="relative">
+        <textarea
+          className={`
+            w-full bg-white text-slate-900 border border-slate-200 rounded-xl px-4 py-3 
+            placeholder:text-slate-400 text-sm font-medium shadow-sm min-h-[120px]
+            transition-all duration-200 ease-in-out
+            focus:outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10
+            hover:border-slate-300
+            resize-y
+            ${className}
+          `}
+          {...props}
+        />
+      </div>
     </div>
   );
 };

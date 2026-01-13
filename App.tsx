@@ -1,14 +1,15 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  FileText, Printer, Loader2, PenTool, RefreshCcw, ShieldCheck, Lock, 
-  Languages, AlertCircle, Coffee, Landmark, ShieldAlert, Zap, GraduationCap, 
-  Files, User, Building2, Settings, Minimize, Maximize, ChevronDown, CheckCircle2,
-  ArrowRight, Heart, QrCode, Feather, Eye, Save, Eraser, Edit3
+  FileText, Printer, Loader2, PenTool, ShieldCheck, 
+  Languages, Coffee, Landmark, ShieldAlert,
+  Files, User, Settings, Minimize, Maximize,
+  ArrowRight, Heart, QrCode, Eraser, Eye, GraduationCap, Building2, Ticket,
+  Zap, CheckCircle2, ChevronDown
 } from 'lucide-react';
 import { ApplicationType, FormData, INITIAL_FORM_DATA, LanguageMode } from './types';
-import { generateLetterText } from './services/pollinations';
+import { generateLetterText, APPLICATION_TYPES } from './services/pollinations';
 import { Input, TextArea } from './components/Input';
 import { PreviewModal } from './components/PreviewModal';
 import { PlatformDetect } from './utils/platform';
@@ -40,11 +41,6 @@ const LABELS: Record<string, { en: string; hi: string }> = {
   trustFree: { en: "Free Forever", hi: "हमेशा मुफ्त" },
   trustFreeSub: { en: "No hidden charges", hi: "कोई शुल्क नहीं" },
 
-  // --- App Sections ---
-  yourDetails: { en: "Your Details", hi: "आपकी जानकारी" },
-  recipientDetails: { en: "Recipient Details", hi: "जिसे पत्र भेजना है" },
-  appDetails: { en: "Application Details", hi: "आवेदन का विवरण" },
-  
   // Fields
   name: { en: "Name", hi: "नाम" },
   fatherName: { en: "Father's Name", hi: "पिता का नाम" },
@@ -52,6 +48,7 @@ const LABELS: Record<string, { en: string; hi: string }> = {
   city: { en: "City/District", hi: "शहर/जिला" },
   phone: { en: "Mobile Number", hi: "मोबाइल नंबर" },
   email: { en: "Email (Optional)", hi: "ईमेल (वैकल्पिक)" },
+  aadhar: { en: "Aadhar Number", hi: "आधार संख्या" },
   
   recipientTitle: { en: "Recipient Title", hi: "पद (जैसे: शाखा प्रबंधक)" },
   recipientAddress: { en: "Recipient Address", hi: "कार्यालय का पता" },
@@ -60,220 +57,19 @@ const LABELS: Record<string, { en: string; hi: string }> = {
   branchName: { en: "Branch Name", hi: "शाखा का नाम" },
   accountNumber: { en: "Account Number", hi: "खाता संख्या" },
   cifNumber: { en: "CIF / IFSC Code", hi: "CIF / IFSC कोड" },
-  cardLastDigits: { en: "Card Last 4 Digits", hi: "कार्ड के अंतिम 4 अंक" },
   
   policeStation: { en: "Police Station Name", hi: "थाना का नाम" },
   incidentDate: { en: "Incident Date", hi: "घटना की तारीख" },
   incidentTime: { en: "Incident Time", hi: "घटना का समय" },
   mobileDetails: { en: "Mobile Model & IMEI", hi: "मोबाइल मॉडल और IMEI" },
-  vehicleDetails: { en: "Vehicle Model & Reg No", hi: "गाड़ी का मॉडल और नंबर" },
   
   consumerNumber: { en: "Consumer / K Number", hi: "उपभोक्ता संख्या (K No)" },
   
   reason: { en: "Reason / Details", hi: "कारण / विवरण" },
   generate: { en: "Generate Letter", hi: "पत्र बनाएं" },
-  download: { en: "Download PDF", hi: "PDF डाउनलोड करें" },
-  print: { en: "Print Letter", hi: "पत्र प्रिंट करें" },
-  copy: { en: "Copy Text", hi: "टेक्स्ट कॉपी करें" },
   preview: { en: "Preview Letter", hi: "पूर्वावलोकन देखें" },
   letterLang: { en: "Letter Language", hi: "पत्र की भाषा" },
   reset: { en: "Reset Form", hi: "फॉर्म रिसेट करें" }
-};
-
-// --- DATA: TEMPLATES SYSTEM ---
-type TemplateType = 'instant' | 'ai';
-
-interface TemplateConfig {
-  id: string;
-  labelEn: string;
-  labelHi: string;
-  type: TemplateType;
-  requiredFields: (keyof FormData)[];
-  templateText?: string; // For instant
-  aiPrompt?: string; // For custom
-}
-
-const TEMPLATE_DB: Record<string, TemplateConfig[]> = {
-  [ApplicationType.BANK_TRANSFER]: [
-    {
-      id: 'atm_lost',
-      labelEn: "⚡ ATM Card Lost (Instant)",
-      labelHi: "⚡ ATM कार्ड खो गया (तुरंत)",
-      type: 'instant',
-      requiredFields: ['senderName', 'accountNumber', 'bankName', 'branchName', 'atmCardLastDigits', 'date'],
-      templateText: `To,
-The Branch Manager,
-{{bankName}},
-{{branchName}}
-
-Date: {{date}}
-
-Subject: Request to Block Lost ATM Card (A/c: {{accountNumber}})
-
-Respected Sir/Madam,
-
-I, {{senderName}}, am holding a savings account in your branch with Account Number {{accountNumber}}.
-
-I wish to inform you that my ATM/Debit Card (ending with digits {{atmCardLastDigits}}) has been lost/stolen.
-
-I request you to immediately BLOCK the said card to prevent any misuse. I also request you to issue a new ATM card at your earliest convenience.
-
-Thanking you.
-
-Yours faithfully,
-
-{{senderName}}
-Mobile: {{phone}}`
-    },
-    {
-      id: 'cheque_book',
-      labelEn: "⚡ Request Cheque Book (Instant)",
-      labelHi: "⚡ चेकबुक अनुरोध (तुरंत)",
-      type: 'instant',
-      requiredFields: ['senderName', 'accountNumber', 'bankName', 'branchName'],
-      templateText: `To,
-The Branch Manager,
-{{bankName}},
-{{branchName}}
-
-Date: {{date}}
-
-Subject: Request for Issue of New Cheque Book
-
-Respected Sir/Madam,
-
-I hold a savings account in your branch with Account Number {{accountNumber}}.
-
-I request you to kindly issue a new Cheque Book (25 Leaves) for my account. I authorize you to debit the applicable charges from my account.
-
-Kindly dispatch it to my registered address or inform me when I can collect it.
-
-Thank you.
-
-Yours faithfully,
-
-{{senderName}}
-Mobile: {{phone}}`
-    },
-    {
-      id: 'bank_custom',
-      labelEn: "🤖 Other Banking Issue (AI)",
-      labelHi: "🤖 अन्य बैंक समस्या (AI)",
-      type: 'ai',
-      requiredFields: ['senderName', 'accountNumber', 'bankName', 'customBody']
-    }
-  ],
-  [ApplicationType.POLICE_COMPLAINT]: [
-    {
-      id: 'mobile_theft',
-      labelEn: "⚡ Mobile Theft FIR (Instant)",
-      labelHi: "⚡ मोबाइल चोरी FIR (तुरंत)",
-      type: 'instant',
-      requiredFields: ['senderName', 'fatherName', 'senderAddress', 'policeStation', 'mobileDetails', 'incidentDate', 'incidentLocation'],
-      templateText: `To,
-The Station House Officer (SHO),
-{{policeStation}}
-
-Date: {{date}}
-
-Subject: FIR regarding Theft of Mobile Phone
-
-Respected Sir,
-
-I, {{senderName}} S/o {{fatherName}}, resident of {{senderAddress}}, wish to report the theft of my mobile phone.
-
-Incident Details:
-- Date & Time: {{incidentDate}} at {{incidentTime}}
-- Location: {{incidentLocation}}
-- Mobile Model & IMEI: {{mobileDetails}}
-
-The phone was stolen while I was at the above location. I request you to kindly register an FIR and help trace my mobile phone.
-
-Thanking you.
-
-Yours faithfully,
-
-{{senderName}}
-Contact: {{phone}}`
-    },
-    {
-      id: 'police_custom',
-      labelEn: "🤖 Other Police Complaint (AI)",
-      labelHi: "🤖 अन्य पुलिस शिकायत (AI)",
-      type: 'ai',
-      requiredFields: ['senderName', 'policeStation', 'incidentDetails']
-    }
-  ],
-  [ApplicationType.SCHOOL_LEAVE]: [
-    {
-      id: 'sick_leave',
-      labelEn: "⚡ Sick Leave (Instant)",
-      labelHi: "⚡ बीमारी की छुट्टी (तुरंत)",
-      type: 'instant',
-      requiredFields: ['senderName', 'recipientTitle'], // Title = Principal
-      templateText: `To,
-The Principal,
-{{recipientAddress}}
-
-Date: {{date}}
-
-Subject: Application for Sick Leave
-
-Respected Sir/Madam,
-
-Most respectfully, I beg to state that I am suffering from high fever since last night. My doctor has advised me complete rest.
-
-Therefore, I am unable to attend school/class today. I request you to kindly grant me leave for 2 days.
-
-Thanking you.
-
-Yours obediently,
-
-{{senderName}}
-Roll No: {{customBody}}`
-    }
-  ],
-  [ApplicationType.ELECTRICITY_METER]: [
-    {
-      id: 'meter_fault',
-      labelEn: "⚡ Faulty Meter (Instant)",
-      labelHi: "⚡ खराब मीटर (तुरंत)",
-      type: 'instant',
-      requiredFields: ['senderName', 'consumerNumber', 'senderAddress'],
-      templateText: `To,
-The Assistant Engineer,
-Electricity Department,
-{{city}}
-
-Date: {{date}}
-
-Subject: Complaint regarding Faulty Electricity Meter (K.No: {{consumerNumber}})
-
-Dear Sir,
-
-I reside at {{senderAddress}}. My electricity connection has Consumer Number {{consumerNumber}}.
-
-I wish to report that the meter installed at my premises is not working correctly (running too fast/stopped). This is causing incorrect billing.
-
-I request you to kindly send a technician to inspect and replace the meter if found faulty.
-
-Thank you.
-
-Yours faithfully,
-
-{{senderName}}
-Mobile: {{phone}}`
-    }
-  ],
-  [ApplicationType.OTHER]: [
-    {
-      id: 'general_custom',
-      labelEn: "🤖 Write Any Letter (AI)",
-      labelHi: "🤖 कोई भी पत्र लिखें (AI)",
-      type: 'ai',
-      requiredFields: ['senderName', 'recipientTitle', 'customBody']
-    }
-  ]
 };
 
 // --- COMPONENTS ---
@@ -295,50 +91,88 @@ const TrustBadge: React.FC<{ icon: any, title: string, sub: string }> = ({ icon:
   </div>
 );
 
+// --- GROUPING LOGIC ---
+// Defined outside component to prevent recreation and ensure stability.
+// Filter logic is strict to prevent items from appearing in multiple categories, which causes UI jumping.
+const GROUPED_TYPES: Record<string, string[]> = {
+    'Banking': Object.values(APPLICATION_TYPES).filter(t => t.includes('Bank') || t.includes('ATM') || t.includes('Cheque')),
+    'Police / FIR': Object.values(APPLICATION_TYPES).filter(t => t.includes('Police') || t.includes('FIR') || t.includes('Missing')),
+    'School / College': Object.values(APPLICATION_TYPES).filter(t => t.includes('School') || t.includes('College') || t.includes('Scholarship') || t.includes('Exam') || t.includes('Board')),
+    // Exclude School/College items from Certificates
+    'Certificates': Object.values(APPLICATION_TYPES).filter(t => (t.includes('Certificate') || t.includes('OBC') || t.includes('EWS')) && !t.includes('School') && !t.includes('College')),
+    'Electricity / Water': Object.values(APPLICATION_TYPES).filter(t => t.includes('Electricity') || t.includes('Water')),
+    'Government Schemes': Object.values(APPLICATION_TYPES).filter(t => t.includes('Kisan') || t.includes('Ration') || t.includes('Pension') || t.includes('Labour')),
+    // Exclude Police from Other
+    'Other': Object.values(APPLICATION_TYPES).filter(t => (t.includes('General') || t.includes('RTI')) && !t.includes('Police'))
+};
+
+const CATEGORIES = Object.keys(GROUPED_TYPES);
+
 // --- MAIN APP ---
 
 const App: React.FC = () => {
   // Navigation State
   const [view, setView] = useState<'landing' | 'app'>('landing');
   
+  // Use constants for categories
+  const groupedTypes = GROUPED_TYPES;
+  const categories = CATEGORIES;
+
   // App State
-  const [appType, setAppType] = useState<ApplicationType>(ApplicationType.BANK_TRANSFER);
+  const [appType, setAppType] = useState<string>(APPLICATION_TYPES.BANK_ACCOUNT_OPEN);
+  const [activeCategory, setActiveCategory] = useState<string>('Banking');
+
   const [languageMode, setLanguageMode] = useState<LanguageMode>('both');
+  const [outputLang, setOutputLang] = useState<'en' | 'hi'>('hi'); // Default to Hindi as per user context
   
-  // New State for Output Language
-  const [outputLang, setOutputLang] = useState<'en' | 'hi'>('en');
-  
-  const [templateId, setTemplateId] = useState<string>('');
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM_DATA);
   const [generatedLetter, setGeneratedLetter] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [fitToPage, setFitToPage] = useState<boolean>(false);
   const [showModal, setShowModal] = useState<boolean>(false);
 
-  // Derived State
-  const currentTemplates = TEMPLATE_DB[appType] || TEMPLATE_DB[ApplicationType.OTHER];
-  const activeTemplate = currentTemplates.find(t => t.id === templateId) || currentTemplates[0];
+  // Derived State for Field Visibility
+  const showBankFields = appType.includes('Bank') || appType.includes('ATM') || appType.includes('Cheque');
+  const showPoliceFields = appType.includes('Police') || appType.includes('FIR') || appType.includes('Missing');
+  const showSchoolFields = appType.includes('School') || appType.includes('College') || appType.includes('Scholarship') || appType.includes('Exam') || appType.includes('Board');
+  const showElectricityFields = appType.includes('Electricity');
+  const showCertificateFields = appType.includes('Certificate') || appType.includes('OBC') || appType.includes('EWS');
+  const showRTIFields = appType.includes('RTI');
 
   // --- LOCAL STORAGE PERSISTENCE ---
   useEffect(() => {
-    // Load from local storage on mount
     const savedData = localStorage.getItem('arziwala_form_data');
     if (savedData) {
       try {
-        setFormData(JSON.parse(savedData));
-      } catch (e) {
-        console.error("Failed to parse saved data");
-      }
+        const parsed = JSON.parse(savedData);
+        // Merge with initial to ensure all fields exist
+        setFormData({ ...INITIAL_FORM_DATA, ...parsed });
+      } catch (e) { console.error("Failed to parse saved data"); }
     }
   }, []);
 
   useEffect(() => {
-    // Save to local storage on change
     const timeout = setTimeout(() => {
         localStorage.setItem('arziwala_form_data', JSON.stringify(formData));
     }, 1000);
     return () => clearTimeout(timeout);
   }, [formData]);
+
+  // Sync activeCategory when appType changes (e.g. from local storage or manual selection)
+  useEffect(() => {
+    // If the currently active category already contains the selected appType, do nothing.
+    // This prevents the tab from switching back if an item technically exists in multiple lists (rare now due to strict filtering)
+    // or if the user is browsing within the category.
+    if (groupedTypes[activeCategory]?.includes(appType)) {
+        return;
+    }
+
+    // Otherwise, find the correct category for this appType
+    const foundCategory = Object.entries(groupedTypes).find(([_, types]) => types.includes(appType));
+    if (foundCategory) {
+        setActiveCategory(foundCategory[0]);
+    }
+  }, [appType, activeCategory]);
 
   const handleReset = () => {
     if (confirm('Are you sure you want to clear the form?')) {
@@ -348,27 +182,29 @@ const App: React.FC = () => {
     }
   };
 
-
-  useEffect(() => {
-    // Set default template when app type changes
-    if (currentTemplates.length > 0) {
-      setTemplateId(currentTemplates[0].id);
-    }
-  }, [appType]);
-
   // Pre-fill titles based on app type
   useEffect(() => {
     let title = '';
-    if (appType === ApplicationType.BANK_TRANSFER || appType === ApplicationType.ATM_ISSUE) title = 'The Branch Manager';
-    else if (appType === ApplicationType.POLICE_COMPLAINT) title = 'The Station House Officer (SHO)';
-    else if (appType === ApplicationType.ELECTRICITY_METER) title = 'The Assistant Engineer';
-    else if (appType === ApplicationType.SCHOOL_LEAVE) title = 'The Principal';
     
-    // Only set if not already set by user (to allow custom overrides)
-    setFormData(prev => prev.recipientTitle ? prev : ({ ...prev, recipientTitle: title }));
-  }, [appType]);
+    // Determine title based on category/keywords
+    if (showBankFields) title = 'The Branch Manager';
+    else if (showPoliceFields) title = 'The Station House Officer (SHO)';
+    else if (showElectricityFields) title = 'The Assistant Engineer';
+    else if (showSchoolFields) title = 'The Principal';
+    else if (appType.includes('RTI')) title = 'The Public Information Officer';
+    else if (appType.includes('Scheme') || appType.includes('Kisan') || appType.includes('Ration') || appType.includes('Pension') || appType.includes('Labour')) title = 'The Block Development Officer (BDO)';
+    else if (appType.includes('Certificate') || appType.includes('Caste') || appType.includes('Income') || appType.includes('Domicile')) title = 'The Circle Officer (CO)';
+    
+    // Only set if currently empty or if the user hasn't typed a custom one (simple check: if it matches another default)
+    setFormData(prev => {
+        // If empty, set it
+        if (!prev.recipientTitle) return { ...prev, recipientTitle: title };
+        // If it matches a known default but is wrong for current type, update it
+        // (Optional: for now just set if empty to respect user edits)
+        return prev;
+    });
+  }, [appType, showBankFields, showPoliceFields, showElectricityFields, showSchoolFields]);
 
-  // Helper for form labels (returns "En / Hi" for both)
   const getLabel = (key: string) => {
     const l = LABELS[key];
     if (!l) return key;
@@ -377,80 +213,34 @@ const App: React.FC = () => {
     return `${l.en} / ${l.hi}`;
   };
 
-  // Helper for landing page text (returns specific language or English for both to avoid clutter)
   const getLandingText = (key: string) => {
     const l = LABELS[key];
     if (!l) return key;
     if (languageMode === 'hi') return l.hi;
-    // For 'en' and 'both', we default to English structure for the landing page
-    // unless we want to do specific bilingual logic (which can be messy for large headings).
-    // The previous design had bilingual subtitles hardcoded. 
-    // If 'both', let's return English. 
     return l.en;
   };
-
-  // Helper for bilingual subtitles in 'both' mode
+  
   const getLandingSubText = (key: string) => {
     const l = LABELS[key];
     if (!l) return null;
-    if (languageMode === 'both') return l.hi; // Show Hindi secondary
-    return null; // For specific modes, main text handles it
+    if (languageMode === 'both') return l.hi;
+    return null;
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const processInstantTemplate = (templateStr: string) => {
-    let text = templateStr;
-    const map: Record<string, string> = {
-      '{{senderName}}': formData.senderName || '__________',
-      '{{fatherName}}': formData.fatherName || '__________',
-      '{{senderAddress}}': formData.senderAddress || '__________',
-      '{{city}}': formData.city || '__________',
-      '{{phone}}': formData.phone || '__________',
-      '{{date}}': formData.date,
-      '{{recipientTitle}}': formData.recipientTitle || '__________',
-      '{{recipientAddress}}': formData.recipientAddress || '__________',
-      '{{bankName}}': formData.bankName || '__________',
-      '{{branchName}}': formData.branchName || '__________',
-      '{{accountNumber}}': formData.accountNumber || '__________',
-      '{{policeStation}}': formData.policeStation || '__________',
-      '{{incidentDate}}': formData.incidentDate || '__________',
-      '{{incidentTime}}': formData.incidentTime || '__________',
-      '{{incidentLocation}}': formData.incidentLocation || '__________',
-      '{{mobileDetails}}': formData.mobileDetails || '__________',
-      '{{vehicleDetails}}': formData.vehicleDetails || '__________',
-      '{{atmCardLastDigits}}': formData.atmCardLastDigits || '____',
-      '{{consumerNumber}}': formData.consumerNumber || '__________',
-      '{{customBody}}': formData.customBody || '__________',
-    };
-
-    for (const [key, val] of Object.entries(map)) {
-      text = text.split(key).join(val);
-    }
-    return text;
-  };
-
   const handleGenerate = async () => {
     setLoading(true);
-    let text = '';
     try {
-      if (activeTemplate.type === 'instant' && activeTemplate.templateText) {
-        text = processInstantTemplate(activeTemplate.templateText);
-        setGeneratedLetter(text);
-        await new Promise(r => setTimeout(r, 500)); 
-      } else {
-        text = await generateLetterText(appType, formData, outputLang);
-        setGeneratedLetter(text);
-      }
-
+      const text = await generateLetterText(appType, formData, outputLang);
+      setGeneratedLetter(text);
       if (PlatformDetect.isMobile()) {
         setShowModal(true);
       }
-
-    } catch (e) {
-      alert("Error generating letter. Please try again.");
+    } catch (e: any) {
+      alert(e.message || "Error generating letter. Please check required fields.");
     } finally {
       setLoading(false);
     }
@@ -461,7 +251,11 @@ const App: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const isFieldRequired = (field: keyof FormData) => activeTemplate?.requiredFields.includes(field);
+  // UPI Configuration
+  const UPI_ID = "adnanqamar.dev@oksbi";
+  const PAYEE_NAME = "Md. Adnan Qamar";
+  const UPI_LINK = `upi://pay?pa=${UPI_ID}&pn=${encodeURIComponent(PAYEE_NAME)}&cu=INR`;
+  const QR_CODE_URL = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&bgcolor=ffffff&data=${encodeURIComponent(UPI_LINK)}`;
 
   return (
     <div className="min-h-screen font-sans bg-slate-50 text-slate-800">
@@ -507,12 +301,12 @@ const App: React.FC = () => {
                 </button>
               ))}
             </div>
-            <button 
-                onClick={scrollToForm}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-md shadow-blue-200 transition-all md:hidden"
-            >
+            {/* Start button only visible on landing page for mobile */}
+            {view === 'landing' && (
+              <button onClick={scrollToForm} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-md shadow-blue-200 transition-all md:hidden">
                 Start
-            </button>
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -610,29 +404,68 @@ const App: React.FC = () => {
           {/* LEFT: FORM */}
           <div className="space-y-6 pb-32 lg:pb-0 no-print">
             
-            {/* 1. Category Selection */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            {/* 1. Improved Category Selection */}
+            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-slate-200">
                <SectionHeader icon={Settings} title="Select Letter Type / पत्र का प्रकार" />
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 <div className="space-y-1">
-                   <label className="text-xs font-bold text-slate-500 uppercase">Category / श्रेणी</label>
-                   <select 
-                      className="w-full p-3 border rounded-lg bg-slate-50 font-medium"
-                      value={appType}
-                      onChange={(e) => setAppType(e.target.value as ApplicationType)}
-                   >
-                     {Object.values(ApplicationType).map(t => <option key={t} value={t}>{t}</option>)}
-                   </select>
+               
+               {/* Category Tabs/Grid */}
+               <div className="mb-6">
+                 <label className="text-xs font-bold text-slate-500 uppercase mb-3 block">1. Choose Category / श्रेणी चुनें</label>
+                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                   {categories.map(cat => {
+                      let Icon = Files;
+                      if (cat.includes('Banking')) Icon = Landmark;
+                      else if (cat.includes('Police')) Icon = ShieldAlert;
+                      else if (cat.includes('School')) Icon = GraduationCap;
+                      else if (cat.includes('Electricity')) Icon = Zap;
+                      else if (cat.includes('Government')) Icon = Building2;
+                      else if (cat.includes('Certificate')) Icon = CheckCircle2;
+
+                      return (
+                        <button
+                          key={cat}
+                          onClick={() => {
+                            setActiveCategory(cat);
+                            // Auto-select first option in this category
+                            const types = groupedTypes[cat];
+                            if (types && types.length > 0) {
+                                setAppType(types[0]);
+                            }
+                          }}
+                          className={`
+                            flex flex-col items-center justify-center p-3 rounded-lg border transition-all h-24
+                            ${activeCategory === cat 
+                              ? 'bg-blue-50 border-blue-500 text-blue-700 ring-1 ring-blue-500 shadow-sm' 
+                              : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 hover:shadow-sm'}
+                          `}
+                        >
+                          <Icon className={`w-6 h-6 mb-2 ${activeCategory === cat ? 'text-blue-600' : 'text-slate-400'}`} />
+                          <span className="text-[10px] sm:text-xs font-bold uppercase text-center leading-tight">{cat}</span>
+                        </button>
+                      )
+                   })}
                  </div>
-                 <div className="space-y-1">
-                   <label className="text-xs font-bold text-slate-500 uppercase">Template / टेम्पलेट</label>
+               </div>
+
+               {/* Specific Letter Dropdown */}
+               <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                 <label className="text-xs font-bold text-slate-500 uppercase">2. Select Specific Letter / पत्र चुनें</label>
+                 <div className="relative">
                    <select 
-                      className="w-full p-3 border rounded-lg bg-blue-50 font-medium text-blue-900 border-blue-200"
-                      value={templateId}
-                      onChange={(e) => setTemplateId(e.target.value)}
+                      className="w-full p-4 pl-12 pr-10 border rounded-xl bg-slate-50 font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none appearance-none cursor-pointer hover:bg-slate-100 transition-colors"
+                      value={appType}
+                      onChange={(e) => setAppType(e.target.value)}
                    >
-                     {currentTemplates.map(t => <option key={t.id} value={t.id}>{t.labelEn}</option>)}
+                     {groupedTypes[activeCategory as keyof typeof groupedTypes]?.map(t => (
+                       <option key={t} value={t}>{t}</option>
+                     ))}
                    </select>
+                   <div className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-600 pointer-events-none">
+                      <FileText className="w-5 h-5" />
+                   </div>
+                   <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                      <ChevronDown className="w-5 h-5" />
+                   </div>
                  </div>
                </div>
             </div>
@@ -644,71 +477,95 @@ const App: React.FC = () => {
                     <User className="w-5 h-5" />
                     <span className="font-bold text-sm uppercase">Fill Details</span>
                   </div>
-                  <div className="flex gap-2">
-                     <button onClick={handleReset} className="text-xs text-slate-400 hover:text-red-500 underline flex items-center gap-1">
-                        <Eraser className="w-3 h-3" /> Reset
-                     </button>
-                     <span className="text-xs font-semibold bg-green-100 text-green-700 px-2 py-1 rounded">
-                        {activeTemplate.type === 'instant' ? '⚡ Instant' : '🤖 AI Powered'}
-                     </span>
-                  </div>
+                  <button onClick={handleReset} className="text-xs text-slate-400 hover:text-red-500 underline flex items-center gap-1">
+                     <Eraser className="w-3 h-3" /> Reset
+                  </button>
                </div>
                
                <div className="p-6 space-y-6">
-                  {/* Sender Basic */}
-                  {(isFieldRequired('senderName') || isFieldRequired('senderAddress')) && (
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                       {isFieldRequired('senderName') && (
-                          <Input label={getLabel('name')} name="senderName" value={formData.senderName} onChange={handleInputChange} placeholder="e.g. Ramesh Kumar" />
-                       )}
-                       {isFieldRequired('fatherName') && (
-                          <Input label={getLabel('fatherName')} name="fatherName" value={formData.fatherName} onChange={handleInputChange} placeholder="e.g. Suresh Kumar" />
-                       )}
-                       <Input label={getLabel('phone')} name="phone" value={formData.phone} onChange={handleInputChange} placeholder="98765XXXXX" />
-                       <Input label={getLabel('city')} name="city" value={formData.city} onChange={handleInputChange} />
-                     </div>
-                  )}
-                  {isFieldRequired('senderAddress') && (
-                      <Input label={getLabel('address')} name="senderAddress" value={formData.senderAddress} onChange={handleInputChange} placeholder="House No, Colony, City" />
+                  {/* Common Basic Details */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                     <Input label={getLabel('name')} name="senderName" value={formData.senderName || ''} onChange={handleInputChange} placeholder="e.g. Ramesh Kumar" />
+                     <Input label={getLabel('fatherName')} name="fatherName" value={formData.fatherName || ''} onChange={handleInputChange} placeholder="e.g. Suresh Kumar" />
+                     <Input label={getLabel('phone')} name="phone" value={formData.phone || ''} onChange={handleInputChange} placeholder="98765XXXXX" />
+                     <Input label={getLabel('city')} name="city" value={formData.city || ''} onChange={handleInputChange} />
+                  </div>
+                  <Input label={getLabel('address')} name="senderAddress" value={formData.senderAddress || ''} onChange={handleInputChange} placeholder="Village/Mohalla, Post Office" />
+                  
+                  {/* Identity Docs (Shown for Certificates/Govt) */}
+                  {(showCertificateFields || appType.includes('Scheme')) && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-orange-50 p-4 rounded-lg border border-orange-100">
+                         <Input label={getLabel('aadhar')} name="aadharNumber" value={formData.aadharNumber || ''} onChange={handleInputChange} placeholder="12 Digit UID" />
+                         {appType.includes('Ration') && <Input label="Ration Card No." name="rationCardNumber" value={formData.rationCardNumber || ''} onChange={handleInputChange} />}
+                      </div>
                   )}
 
                   {/* Bank Details */}
-                  {appType.includes('Bank') || appType.includes('ATM') ? (
+                  {showBankFields && (
                     <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 space-y-4">
                         <SectionHeader icon={Landmark} title="Bank Details" />
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <Input label={getLabel('bankName')} name="bankName" value={formData.bankName} onChange={handleInputChange} />
-                            <Input label={getLabel('branchName')} name="branchName" value={formData.branchName} onChange={handleInputChange} />
-                            <Input label={getLabel('accountNumber')} name="accountNumber" value={formData.accountNumber} onChange={handleInputChange} />
-                            {isFieldRequired('atmCardLastDigits') && (
-                                <Input label={getLabel('cardLastDigits')} name="atmCardLastDigits" value={formData.atmCardLastDigits} onChange={handleInputChange} maxLength={4} />
-                            )}
+                            <Input label={getLabel('bankName')} name="bankName" value={formData.bankName || ''} onChange={handleInputChange} />
+                            <Input label={getLabel('branchName')} name="branchName" value={formData.branchName || ''} onChange={handleInputChange} />
+                            <Input label={getLabel('accountNumber')} name="accountNumber" value={formData.accountNumber || ''} onChange={handleInputChange} />
+                            <Input label={getLabel('cifNumber')} name="cifNumber" value={formData.cifNumber || ''} onChange={handleInputChange} />
                         </div>
                     </div>
-                  ) : null}
+                  )}
 
                   {/* Police Details */}
-                  {appType.includes('Police') ? (
+                  {showPoliceFields && (
                     <div className="bg-red-50 p-4 rounded-lg border border-red-100 space-y-4">
                          <SectionHeader icon={ShieldAlert} title="Incident Details" />
-                         <Input label={getLabel('policeStation')} name="policeStation" value={formData.policeStation} onChange={handleInputChange} />
+                         <Input label={getLabel('policeStation')} name="policeStation" value={formData.policeStation || ''} onChange={handleInputChange} />
                          <div className="grid grid-cols-2 gap-4">
-                            <Input label={getLabel('incidentDate')} name="incidentDate" type="date" value={formData.incidentDate} onChange={handleInputChange} />
-                            <Input label={getLabel('incidentTime')} name="incidentTime" type="time" value={formData.incidentTime} onChange={handleInputChange} />
+                            <Input label={getLabel('incidentDate')} name="incidentDate" type="date" value={formData.incidentDate || ''} onChange={handleInputChange} />
+                            <Input label={getLabel('incidentTime')} name="incidentTime" type="time" value={formData.incidentTime || ''} onChange={handleInputChange} />
                          </div>
-                         {isFieldRequired('mobileDetails') && (
-                            <Input label={getLabel('mobileDetails')} name="mobileDetails" value={formData.mobileDetails} onChange={handleInputChange} placeholder="Model Name, IMEI Number" />
+                         <Input label="Incident Location" name="incidentLocation" value={formData.incidentLocation || ''} onChange={handleInputChange} />
+                         {appType.includes('Mobile') && (
+                            <Input label={getLabel('mobileDetails')} name="mobileDetails" value={formData.mobileDetails || ''} onChange={handleInputChange} placeholder="Model Name, IMEI Number" />
                          )}
-                         <Input label={getLabel('incidentLocation')} name="incidentLocation" value={formData.incidentLocation} onChange={handleInputChange} />
+                         <TextArea label="Description of Incident" name="incidentDetails" value={formData.incidentDetails || ''} onChange={handleInputChange} />
                     </div>
-                  ) : null}
+                  )}
 
-                  {/* Custom Body / Reason */}
-                  {(isFieldRequired('customBody') || isFieldRequired('incidentDetails')) && (
+                  {/* Education Details */}
+                  {showSchoolFields && (
+                    <div className="bg-green-50 p-4 rounded-lg border border-green-100 space-y-4">
+                        <SectionHeader icon={GraduationCap} title="Education Details" />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <Input label="School/College Name" name="schoolName" value={formData.schoolName || ''} onChange={handleInputChange} />
+                            <Input label="Class/Course" name="className" value={formData.className || ''} onChange={handleInputChange} />
+                            <Input label="Roll Number" name="rollNumber" value={formData.rollNumber || ''} onChange={handleInputChange} />
+                            <Input label="Session/Year" name="courseName" value={formData.courseName || ''} onChange={handleInputChange} />
+                        </div>
+                    </div>
+                  )}
+
+                  {/* Electricity Details */}
+                  {showElectricityFields && (
+                    <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-100 space-y-4">
+                        <SectionHeader icon={Ticket} title="Connection Details" />
+                        <Input label={getLabel('consumerNumber')} name="consumerNumber" value={formData.consumerNumber || ''} onChange={handleInputChange} />
+                    </div>
+                  )}
+                  
+                  {/* RTI Specifics */}
+                  {showRTIFields && (
+                     <div className="bg-slate-100 p-4 rounded-lg border border-slate-200 space-y-4">
+                        <SectionHeader icon={Files} title="RTI Details" />
+                        <TextArea label="Information Required (RTI Query)" name="rtiQuery" value={formData.rtiQuery || ''} onChange={handleInputChange} rows={4} />
+                        <Input label="Period of Information" name="rtiPeriod" value={formData.rtiPeriod || ''} onChange={handleInputChange} placeholder="e.g. 2020-2023" />
+                     </div>
+                  )}
+
+                  {/* Custom Body / Reason (if not Police/RTI which have specific textareas) */}
+                  {!showPoliceFields && !showRTIFields && (
                      <TextArea 
                         label={getLabel('reason')} 
                         name="customBody" 
-                        value={formData.customBody} 
+                        value={formData.customBody || ''} 
                         onChange={handleInputChange} 
                         placeholder="Explain your request in detail..."
                         rows={4}
@@ -719,28 +576,26 @@ const App: React.FC = () => {
 
             {/* GENERATE BUTTON */}
             <div className="space-y-4">
-                {activeTemplate.type === 'ai' && (
-                    <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-xl flex items-center justify-between">
-                         <label className="text-sm font-bold text-indigo-900 flex items-center gap-2">
-                             <Languages className="w-4 h-4" />
-                             {getLabel('letterLang')}:
-                         </label>
-                         <div className="flex bg-white rounded-lg p-1 border border-indigo-200">
-                             <button 
-                                onClick={() => setOutputLang('en')}
-                                className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all ${outputLang === 'en' ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:bg-indigo-50'}`}
-                             >
-                                English
-                             </button>
-                             <button 
-                                onClick={() => setOutputLang('hi')}
-                                className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all ${outputLang === 'hi' ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:bg-indigo-50'}`}
-                             >
-                                हिंदी
-                             </button>
-                         </div>
-                    </div>
-                )}
+                <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-xl flex items-center justify-between">
+                     <label className="text-sm font-bold text-indigo-900 flex items-center gap-2">
+                         <Languages className="w-4 h-4" />
+                         {getLabel('letterLang')}:
+                     </label>
+                     <div className="flex bg-white rounded-lg p-1 border border-indigo-200">
+                         <button 
+                            onClick={() => setOutputLang('en')}
+                            className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all ${outputLang === 'en' ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:bg-indigo-50'}`}
+                         >
+                            English
+                         </button>
+                         <button 
+                            onClick={() => setOutputLang('hi')}
+                            className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all ${outputLang === 'hi' ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:bg-indigo-50'}`}
+                         >
+                            हिंदी
+                         </button>
+                     </div>
+                </div>
                 
                 <button
                 onClick={handleGenerate}
@@ -748,7 +603,7 @@ const App: React.FC = () => {
                 className="w-full bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold py-4 px-6 rounded-xl shadow-lg shadow-slate-300 transition-all flex items-center justify-center gap-3 text-lg"
                 >
                 {loading ? <Loader2 className="animate-spin" /> : <PenTool className="w-5 h-5" />}
-                <span>{activeTemplate.type === 'instant' ? getLabel('generate') : `Generate in ${outputLang === 'en' ? 'English' : 'Hindi'}`}</span>
+                <span>{getLabel('generate')}</span>
                 </button>
             </div>
             
@@ -773,18 +628,23 @@ const App: React.FC = () => {
                  <p className="text-sm text-slate-500 mb-6">This tool is free and private. Your support keeps it running.</p>
                  
                  <div className="flex flex-col md:flex-row items-center justify-center gap-6">
-                    {/* Desktop QR Placeholder */}
-                    <div className="hidden md:block bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
-                       <div className="w-24 h-24 bg-slate-800 flex items-center justify-center text-white rounded">
-                          <QrCode className="w-12 h-12 opacity-50" />
+                    {/* Desktop QR - Dynamically Generated for Accuracy */}
+                    <div className="hidden md:flex flex-col items-center bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                       <div className="w-32 h-32 bg-white flex items-center justify-center rounded-lg overflow-hidden border border-slate-100">
+                          <img 
+                            src={QR_CODE_URL} 
+                            alt="UPI QR Code" 
+                            className="w-full h-full object-contain"
+                          />
                        </div>
-                       <div className="text-[10px] mt-1 font-mono text-slate-500">yourname@okicici</div>
+                       <div className="text-[10px] mt-2 font-mono text-slate-500 font-bold">{UPI_ID}</div>
+                       <div className="text-[9px] text-slate-400">{PAYEE_NAME}</div>
                     </div>
 
                     {/* Mobile UPI Button */}
                     <div className="space-y-3 w-full md:w-auto">
                         <a 
-                           href="upi://pay?pa=yourname@okicici&pn=MeriArzi&cu=INR" 
+                           href={UPI_LINK} 
                            className="flex items-center justify-center w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-colors gap-2"
                         >
                            <Heart className="w-4 h-4 fill-white" />
